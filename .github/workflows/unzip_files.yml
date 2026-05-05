@@ -1,9 +1,9 @@
-name: Unzip Registry Files to Main
+name: Auto Detect and Unzip
 
 on:
   push:
     paths:
-      - 'registry/**.zip'
+      - '**/*.zip'
   workflow_dispatch:
 
 jobs:
@@ -16,67 +16,60 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          ref: main
 
       - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Parse and Unzip Files
+      - name: Auto Detect and Unzip
         run: |
-          # 1. Check karein ke registry folder maujood hai ya nahi
-          if [ ! -d "registry" ]; then
-            echo "Registry folder nahi mila! Creating it now..."
-            mkdir -p registry
-          fi
+          # 1. Puri repository mein zip files dhundna (sirf .github folder ko chor kar)
+          # 'find' command auto-detect karegi
+          ZIP_FILES=$(find . -name "*.zip" -not -path "./.github/*")
 
-          # 2. Check karein ke folder mein koi zip file hai?
-          shopt -s nullglob
-          zip_files=(registry/*.zip)
-          
-          if [ ${#zip_files[@]} -eq 0 ]; then
-            echo "Registry folder mein koi .zip file nahi mili."
+          if [ -z "$ZIP_FILES" ]; then
+            echo "Koi zip file nahi mili."
             exit 0
           fi
 
-          # 3. Zip files ko process karna
-          for zip in "${zip_files[@]}"; do
+          for zip in $ZIP_FILES; do
             echo "Processing $zip..."
             
-            # Temporary folder banana extraction ke liye
+            # Temporary folder banana
             mkdir -p temp_extract
             unzip -o "$zip" -d temp_extract
             
-            # 4. Zip ke andar wale folder se files main (root) mein move karna
-            # Hum pehle folder ke andar jayenge aur sab kuch bahar copy kar denge
+            # 2. Zip ke andar wale contents ko handle karna
             cd temp_extract
             
-            # Zip ke andar jo pehla folder mile, uske andar ki files uthao
-            # Agar zip mein files folder ke bajaye direct hain toh bhi handle ho jayega
-            SUB_DIR=$(find . -maxdepth 1 -type d ! -path .)
-            
-            if [ -n "$SUB_DIR" ]; then
-              echo "Zip ke andar folder mila: $SUB_DIR. Files move ho rahi hain..."
-              cp -r "$SUB_DIR"/* ../
+            # Check karna ke kya zip ke andar sirf ek hi folder hai?
+            # Agar sirf ek folder hai toh uske andar ka maal bahar nikalna
+            ITEM_COUNT=$(ls -1 | wc -l)
+            FIRST_ITEM=$(ls -1)
+
+            if [ "$ITEM_COUNT" -eq 1 ] && [ -d "$FIRST_ITEM" ]; then
+              echo "Folder ke andar se files nikali ja rahi hain..."
+              cp -r "$FIRST_ITEM"/* ../
             else
-              echo "Zip ke andar koi extra folder nahi mila, direct files copy ho rahi hain..."
+              echo "Direct files copy ho rahi hain..."
               cp -r ./* ../
             fi
             
             cd ..
             rm -rf temp_extract
-            # (Otionally) Zip file delete karna taake dubara run na ho
+            
+            # 3. (Optional) Purani zip delete karna taake dubara loop na chale
             # rm "$zip"
           done
 
       - name: Commit and Push Changes
         run: |
           git add .
+          # Check changes
           if git diff --staged --quiet; then
-            echo "Koi nayi tabdeeli nahi mili."
+            echo "Koi nayi file extract nahi hui."
           else
-            git commit -m "Auto-extracted nested files from registry zip"
+            git commit -m "Auto-detected and extracted zip files"
             git push origin main
           fi
