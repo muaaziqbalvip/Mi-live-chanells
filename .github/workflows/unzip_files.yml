@@ -1,7 +1,5 @@
 name: Unzip Registry Files to Main
 
-# Yeh workflow tab chalega jab aap 'registry' folder mein zip file push karenge
-# Ya phir aap ise manually bhi chala sakte hain
 on:
   push:
     paths:
@@ -12,55 +10,73 @@ jobs:
   extract_and_push:
     runs-on: ubuntu-latest
     
-    # Permissions lazmi hain taake workflow changes push kar sake
     permissions:
       contents: write
 
     steps:
-      # 1. Repository ka code checkout karna
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           ref: main
-          fetch-depth: 0
 
-      # 2. Git user configure karna (taake commit ho sake)
       - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      # 3. Zip files ko dhundna aur unhe extract karna
       - name: Parse and Unzip Files
         run: |
-          # Registry folder check karna
-          if [ -d "registry" ]; then
-            cd registry
-            for file in *.zip; do
-              if [ -f "$file" ]; then
-                echo "Extracting $file..."
-                # -o ka matlab hai overwrite agar file pehle se maujood ho
-                # -d .. ka matlab hai ke files ko parent directory (main root) mein extract karo
-                unzip -o "$file" -d ..
-                
-                # Extract karne ke baad zip file ko delete karna (optional)
-                # rm "$file"
-              fi
-            done
-            cd ..
-          else
-            echo "Registry folder nahi mila!"
-            exit 1
+          # 1. Check karein ke registry folder maujood hai ya nahi
+          if [ ! -d "registry" ]; then
+            echo "Registry folder nahi mila! Creating it now..."
+            mkdir -p registry
           fi
 
-      # 4. Changes ko commit aur push karna
+          # 2. Check karein ke folder mein koi zip file hai?
+          shopt -s nullglob
+          zip_files=(registry/*.zip)
+          
+          if [ ${#zip_files[@]} -eq 0 ]; then
+            echo "Registry folder mein koi .zip file nahi mili."
+            exit 0
+          fi
+
+          # 3. Zip files ko process karna
+          for zip in "${zip_files[@]}"; do
+            echo "Processing $zip..."
+            
+            # Temporary folder banana extraction ke liye
+            mkdir -p temp_extract
+            unzip -o "$zip" -d temp_extract
+            
+            # 4. Zip ke andar wale folder se files main (root) mein move karna
+            # Hum pehle folder ke andar jayenge aur sab kuch bahar copy kar denge
+            cd temp_extract
+            
+            # Zip ke andar jo pehla folder mile, uske andar ki files uthao
+            # Agar zip mein files folder ke bajaye direct hain toh bhi handle ho jayega
+            SUB_DIR=$(find . -maxdepth 1 -type d ! -path .)
+            
+            if [ -n "$SUB_DIR" ]; then
+              echo "Zip ke andar folder mila: $SUB_DIR. Files move ho rahi hain..."
+              cp -r "$SUB_DIR"/* ../
+            else
+              echo "Zip ke andar koi extra folder nahi mila, direct files copy ho rahi hain..."
+              cp -r ./* ../
+            fi
+            
+            cd ..
+            rm -rf temp_extract
+            # (Otionally) Zip file delete karna taake dubara run na ho
+            # rm "$zip"
+          done
+
       - name: Commit and Push Changes
         run: |
           git add .
-          # Check karna ke kya koi tabdeeli hui hai
           if git diff --staged --quiet; then
-            echo "Koi nayi files nahi mili commit karne ke liye."
+            echo "Koi nayi tabdeeli nahi mili."
           else
-            git commit -m "Auto-extracted files from registry zip"
+            git commit -m "Auto-extracted nested files from registry zip"
             git push origin main
           fi
