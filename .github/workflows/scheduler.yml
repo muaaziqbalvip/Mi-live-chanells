@@ -1,0 +1,81 @@
+name: MI LIVE TV — 30-Day Scheduler
+
+on:
+  schedule:
+    # Run every day at 00:00 UTC (05:00 PKT)
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      channels:
+        description: 'Channel IDs (space-separated, e.g. "1 2 3")'
+        required: false
+        default: '1'
+      days:
+        description: 'Days to schedule ahead'
+        required: false
+        default: '30'
+      triggered_by:
+        description: 'Who triggered this run'
+        required: false
+        default: 'cron'
+
+jobs:
+  schedule:
+    name: Calculate 30-Day Playout Schedule
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install firebase-admin
+
+      - name: Validate environment
+        run: |
+          echo "Channels: ${{ github.event.inputs.channels || '1' }}"
+          echo "Days: ${{ github.event.inputs.days || '30' }}"
+          echo "Triggered by: ${{ github.event.inputs.triggered_by || 'cron' }}"
+          python --version
+
+      - name: Run 30-Day Scheduler
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
+          DEFAULT_FILLER_URL: ${{ secrets.DEFAULT_FILLER_URL }}
+          DEFAULT_PROMO_URL: ${{ secrets.DEFAULT_PROMO_URL }}
+        run: |
+          python playout.py \
+            --channels ${{ github.event.inputs.channels || '1' }} \
+            --days ${{ github.event.inputs.days || '30' }} \
+            --timezone Asia/Karachi \
+            --export schedule_export.json
+
+      - name: Upload schedule export as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: schedule-export-${{ github.run_number }}
+          path: schedule_export*.json
+          retention-days: 7
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "✅ 30-day schedule calculated and saved to Firebase."
+          echo "Run: ${{ github.run_number }} | Date: $(date -u)"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Scheduler FAILED. Check logs above."
+          exit 1
