@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="ur" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MI LIVE TV — Control Room</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Urdu Nastaliq Font -->
+  <style>
+    @font-face {
+      font-family: 'JameelNooriNastaliq';
+      src: url('https://cdn.jsdelivr.net/gh/IttefaqGroup/Urdu-Fonts@main/JameelNooriNastaleeq.ttf') format('truetype');
+      font-display: swap;
+    }
+  </style>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════
+     SCANLINE + NOISE OVERLAY
+═══════════════════════════════════════════════════════ -->
+<div class="noise-overlay"></div>
+<div class="scanlines"></div>
+
+<!-- ══════════════════════════════════════════════════════
+     TOP NAV / HEADER
+═══════════════════════════════════════════════════════ -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="logo-pulse">
+      <span class="logo-icon">📡</span>
+      <span class="logo-text">MI LIVE TV</span>
+      <span class="logo-sub">CONTROL ROOM</span>
+    </div>
+    <div class="on-air-badge" id="onAirBadge">
+      <span class="dot"></span> ON AIR
+    </div>
+  </div>
+
+  <div class="topbar-center">
+    <div class="broadcast-clock">
+      <div class="clock-time" id="clockTime">00:00:00</div>
+      <div class="clock-date" id="clockDate">MON 01 JAN 2025</div>
+    </div>
+  </div>
+
+  <div class="topbar-right">
+    <div class="signal-bars">
+      <span class="bar b1"></span>
+      <span class="bar b2"></span>
+      <span class="bar b3"></span>
+      <span class="bar b4"></span>
+      <span class="bar b5"></span>
+    </div>
+    <span class="signal-label">SIGNAL OK</span>
+    <div class="channel-selector">
+      <label>CHANNEL</label>
+      <select id="channelSelect" onchange="switchChannel(this.value)">
+        <option value="1">MI LIVE 1</option>
+        <option value="2">MI LIVE 2</option>
+        <option value="3">MI LIVE 3</option>
+      </select>
+    </div>
+    <button class="btn-emergency" onclick="triggerEmergency()">⚠ EMERGENCY</button>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════════
+     MAIN LAYOUT
+═══════════════════════════════════════════════════════ -->
+<main class="main-layout">
+
+  <!-- ── LEFT SIDEBAR: Navigation ── -->
+  <aside class="sidebar">
+    <nav class="side-nav">
+      <button class="nav-btn active" onclick="showPanel('playout')" data-panel="playout">
+        <span class="nav-icon">▶</span><span class="nav-label">PLAYOUT</span>
+      </button>
+      <button class="nav-btn" onclick="showPanel('scheduler')" data-panel="scheduler">
+        <span class="nav-icon">📅</span><span class="nav-label">SCHEDULER</span>
+      </button>
+      <button class="nav-btn" onclick="showPanel('overlay')" data-panel="overlay">
+        <span class="nav-icon">🎨</span><span class="nav-label">OVERLAYS</span>
+      </button>
+      <button class="nav-btn" onclick="showPanel('ticker')" data-panel="ticker">
+        <span class="nav-icon">📰</span><span class="nav-label">TICKER</span>
+      </button>
+      <button class="nav-btn" onclick="showPanel('media')" data-panel="media">
+        <span class="nav-icon">🎬</span><span class="nav-label">MEDIA</span>
+      </button>
+      <button class="nav-btn" onclick="showPanel('analytics')" data-panel="analytics">
+        <span class="nav-icon">📊</span><span class="nav-label">ANALYTICS</span>
+      </button>
+      <button class="nav-btn" onclick="showPanel('settings')" data-panel="settings">
+        <span class="nav-icon">⚙</span><span class="nav-label">SETTINGS</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="uptime-box">
+        <div class="uptime-label">UPTIME</div>
+        <div class="uptime-value" id="uptimeDisplay">00:00:00</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── CENTER: Preview Monitor ── -->
+  <section class="center-section">
+
+    <!-- PROGRAM MONITOR -->
+    <div class="monitor-wrap">
+      <div class="monitor-label">PROGRAM OUTPUT — CH<span id="monitorCh">1</span></div>
+      <div class="monitor" id="programMonitor">
+
+        <!-- Video Layer -->
+        <video id="previewPlayer" class="monitor-video" muted autoplay loop
+          poster="https://placehold.co/1280x720/0a0a12/00ff88?text=NO+SIGNAL">
+        </video>
+
+        <!-- Logo Overlay Layer -->
+        <div class="overlay-logo" id="logoOverlay">
+          <div class="logo-animated">📡 MI LIVE</div>
+        </div>
+
+        <!-- Digital Clock Overlay -->
+        <div class="overlay-clock" id="clockOverlay">
+          <span id="overlayClock">00:00:00</span>
+        </div>
+
+        <!-- Copyright Protection Filter -->
+        <div class="copyright-filter" id="copyrightFilter"></div>
+
+        <!-- Patti / Ticker Bar -->
+        <div class="patti-bar" id="pattiBar">
+          <div class="patti-channel-tag">MI LIVE</div>
+          <div class="patti-scroll-wrap">
+            <div class="patti-text" id="pattiScrollText">
+              خوش آمدید MI LIVE TV میں 🎉 &nbsp;&nbsp;&nbsp; Breaking: Latest updates from around the world 🌍 &nbsp;&nbsp;&nbsp; آج کا پروگرام شروع ہونے والا ہے &nbsp;&nbsp;&nbsp; Stay tuned for more exciting content! 📺
+            </div>
+          </div>
+        </div>
+
+        <!-- Monitor HUD -->
+        <div class="monitor-hud">
+          <span class="hud-rec">⏺ REC</span>
+          <span class="hud-fps">25 FPS</span>
+          <span class="hud-res">1080p</span>
+        </div>
+
+        <!-- No Signal State -->
+        <div class="no-signal" id="noSignal" style="display:none;">
+          <div class="no-signal-text">NO SIGNAL</div>
+          <div class="no-signal-static"></div>
+        </div>
+      </div>
+
+      <!-- Stream URL Row -->
+      <div class="stream-url-row">
+        <span class="stream-label">M3U8 STREAM:</span>
+        <input class="stream-url-input" id="streamUrlDisplay" readonly
+          value="/api/stream?channelId=1" />
+        <button class="btn-copy" onclick="copyStreamUrl()">📋 COPY</button>
+        <button class="btn-open" onclick="openStreamUrl()">▶ OPEN</button>
+      </div>
+    </div>
+
+    <!-- NOW PLAYING BAR -->
+    <div class="now-playing-bar">
+      <div class="np-label">NOW PLAYING</div>
+      <div class="np-title" id="npTitle">Loading schedule…</div>
+      <div class="np-progress-wrap">
+        <div class="np-progress-bar" id="npProgress" style="width:0%"></div>
+      </div>
+      <div class="np-times">
+        <span id="npElapsed">00:00</span>
+        <span id="npTotal">00:00</span>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ── RIGHT PANEL: Dynamic Panels ── -->
+  <aside class="right-panel">
+
+    <!-- ══ PLAYOUT PANEL ══ -->
+    <div class="panel active" id="panel-playout">
+      <h2 class="panel-title">PLAYOUT QUEUE</h2>
+
+      <div class="queue-controls">
+        <button class="btn-ctrl btn-play" onclick="playoutAction('play')">▶ PLAY</button>
+        <button class="btn-ctrl btn-pause" onclick="playoutAction('pause')">⏸ PAUSE</button>
+        <button class="btn-ctrl btn-next" onclick="playoutAction('next')">⏭ NEXT</button>
+        <button class="btn-ctrl btn-stop" onclick="playoutAction('stop')">⏹ STOP</button>
+      </div>
+
+      <div class="queue-list" id="queueList">
+        <div class="queue-item active-item">
+          <span class="qi-num">1</span>
+          <span class="qi-icon">▶</span>
+          <div class="qi-info">
+            <div class="qi-title">Morning Broadcast Intro</div>
+            <div class="qi-meta">00:05:00 · Filler</div>
+          </div>
+          <span class="qi-status live">LIVE</span>
+        </div>
+        <div class="queue-item">
+          <span class="qi-num">2</span>
+          <span class="qi-icon">⏸</span>
+          <div class="qi-info">
+            <div class="qi-title">News Bulletin — Morning</div>
+            <div class="qi-meta">00:30:00 · News</div>
+          </div>
+          <span class="qi-status scheduled">NEXT</span>
+        </div>
+        <div class="queue-item">
+          <span class="qi-num">3</span>
+          <span class="qi-icon">🎬</span>
+          <div class="qi-info">
+            <div class="qi-title">Channel Promo 01</div>
+            <div class="qi-meta">00:01:30 · Promo</div>
+          </div>
+          <span class="qi-status filler">FILLER</span>
+        </div>
+        <div class="queue-item">
+          <span class="qi-num">4</span>
+          <span class="qi-icon">🎬</span>
+          <div class="qi-info">
+            <div class="qi-title">Documentary — Nature</div>
+            <div class="qi-meta">00:45:00 · Program</div>
+          </div>
+          <span class="qi-status scheduled">QUEUED</span>
+        </div>
+      </div>
+
+      <div class="filler-config">
+        <h3 class="sub-title">AUTO-FILLER CONFIG</h3>
+        <label class="cfg-label">Default Filler URL</label>
+        <input class="cfg-input" id="fillerUrl" value="https://example.com/filler.mp4" />
+        <label class="cfg-label">Gap Threshold (seconds)</label>
+        <input class="cfg-input" type="number" id="gapThreshold" value="5" />
+        <button class="btn-save" onclick="saveFillerConfig()">💾 SAVE CONFIG</button>
+      </div>
+    </div>
+
+    <!-- ══ SCHEDULER PANEL ══ -->
+    <div class="panel" id="panel-scheduler">
+      <h2 class="panel-title">30-DAY SCHEDULER</h2>
+
+      <div class="schedule-add-form">
+        <h3 class="sub-title">ADD SCHEDULE ENTRY</h3>
+        <label class="cfg-label">Title</label>
+        <input class="cfg-input" id="schTitle" placeholder="Program name" />
+        <label class="cfg-label">Start Time</label>
+        <input class="cfg-input" type="datetime-local" id="schStart" />
+        <label class="cfg-label">Duration (HH:MM:SS)</label>
+        <input class="cfg-input" id="schDuration" placeholder="00:30:00" />
+        <label class="cfg-label">Video URL</label>
+        <input class="cfg-input" id="schVideoUrl" placeholder="https://..." />
+        <label class="cfg-label">Type</label>
+        <select class="cfg-input" id="schType">
+          <option value="program">Program</option>
+          <option value="news">News</option>
+          <option value="filler">Filler</option>
+          <option value="promo">Promo</option>
+          <option value="ad">Advertisement</option>
+        </select>
+        <button class="btn-save" onclick="addScheduleEntry()">➕ ADD TO SCHEDULE</button>
+        <button class="btn-secondary" onclick="triggerPythonScheduler()">🐍 RUN 30-DAY CALC</button>
+      </div>
+
+      <div class="schedule-timeline" id="scheduleTimeline">
+        <h3 class="sub-title">TODAY'S TIMELINE</h3>
+        <div class="timeline-list" id="timelineList">
+          <div class="tl-loading">Loading schedule from Firebase…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ OVERLAY PANEL ══ -->
+    <div class="panel" id="panel-overlay">
+      <h2 class="panel-title">OVERLAY LAYERS</h2>
+
+      <!-- Logo Layer -->
+      <div class="overlay-section">
+        <div class="overlay-header">
+          <span>📌 LOGO LAYER</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="logoToggle" checked onchange="toggleOverlay('logo')" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <label class="cfg-label">Logo Text / Emoji</label>
+        <input class="cfg-input" id="logoText" value="📡 MI LIVE" />
+        <label class="cfg-label">Position</label>
+        <select class="cfg-input" id="logoPosition" onchange="updateLogoPosition()">
+          <option value="top-left">Top Left</option>
+          <option value="top-right">Top Right</option>
+          <option value="bottom-left">Bottom Left</option>
+          <option value="bottom-right">Bottom Right</option>
+        </select>
+        <label class="cfg-label">Animation</label>
+        <select class="cfg-input" id="logoAnim" onchange="updateLogoAnim()">
+          <option value="pulse">Pulse</option>
+          <option value="glow">Glow</option>
+          <option value="bounce">Bounce</option>
+          <option value="none">None</option>
+        </select>
+        <button class="btn-save" onclick="applyLogoSettings()">✅ APPLY LOGO</button>
+      </div>
+
+      <!-- Clock Layer -->
+      <div class="overlay-section">
+        <div class="overlay-header">
+          <span>🕐 CLOCK OVERLAY</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="clockToggle" checked onchange="toggleOverlay('clock')" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <label class="cfg-label">Format</label>
+        <select class="cfg-input" id="clockFormat">
+          <option value="24h">24-Hour (HH:MM:SS)</option>
+          <option value="12h">12-Hour (hh:MM:SS AM/PM)</option>
+        </select>
+      </div>
+
+      <!-- Copyright Filter -->
+      <div class="overlay-section">
+        <div class="overlay-header">
+          <span>🛡 COPYRIGHT FILTER</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="copyrightToggle" onchange="toggleOverlay('copyright')" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <label class="cfg-label">Filter Type</label>
+        <select class="cfg-input" id="filterType" onchange="applyFilter()">
+          <option value="noise">Subtle Noise</option>
+          <option value="tint">Color Tint</option>
+          <option value="grain">Film Grain</option>
+          <option value="watermark">Invisible Watermark</option>
+        </select>
+        <label class="cfg-label">Intensity</label>
+        <input type="range" class="cfg-range" id="filterIntensity" min="1" max="10" value="3" oninput="updateFilterIntensity(this.value)" />
+        <span class="range-val" id="filterVal">3</span>
+      </div>
+    </div>
+
+    <!-- ══ TICKER PANEL ══ -->
+    <div class="panel" id="panel-ticker">
+      <h2 class="panel-title">PATTI / TICKER 📰</h2>
+
+      <div class="overlay-section">
+        <div class="overlay-header">
+          <span>📰 TICKER BAR</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="tickerToggle" checked onchange="toggleOverlay('ticker')" />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <label class="cfg-label">Language Mode</label>
+        <select class="cfg-input" id="tickerLang" onchange="updateTickerLang()">
+          <option value="en">English</option>
+          <option value="ur">اردو (Nastaliq)</option>
+          <option value="mixed">Mixed (EN + UR)</option>
+        </select>
+
+        <label class="cfg-label">Ticker Text (Urdu/English + Emojis ✅)</label>
+        <textarea class="cfg-textarea" id="tickerText" rows="4"
+          placeholder="Enter ticker text here... اردو میں بھی لکھ سکتے ہیں 🎉">خوش آمدید MI LIVE TV میں 🎉 &nbsp;&nbsp;&nbsp; Breaking: Latest updates 🌍 &nbsp;&nbsp;&nbsp; آج کا پروگرام شروع ہونے والا ہے</textarea>
+
+        <label class="cfg-label">Scroll Speed</label>
+        <input type="range" class="cfg-range" id="tickerSpeed" min="5" max="60" value="25" oninput="updateTickerSpeed(this.value)" />
+        <span class="range-val" id="speedVal">25s</span>
+
+        <label class="cfg-label">Background Color</label>
+        <input type="color" class="cfg-color" id="tickerBg" value="#cc0000" onchange="updateTickerStyle()" />
+
+        <label class="cfg-label">Text Color</label>
+        <input type="color" class="cfg-color" id="tickerColor" value="#ffffff" onchange="updateTickerStyle()" />
+
+        <button class="btn-save" onclick="applyTickerSettings()">📡 PUSH LIVE</button>
+        <button class="btn-secondary" onclick="clearTicker()">🗑 CLEAR</button>
+      </div>
+
+      <!-- Breaking News Quick Insert -->
+      <div class="overlay-section">
+        <h3 class="sub-title">⚡ BREAKING NEWS</h3>
+        <div class="breaking-btns">
+          <button class="btn-breaking" onclick="insertBreaking('🔴 BREAKING')">🔴 BREAKING</button>
+          <button class="btn-breaking" onclick="insertBreaking('⚡ ALERT')">⚡ ALERT</button>
+          <button class="btn-breaking" onclick="insertBreaking('📢 NOTICE')">📢 NOTICE</button>
+          <button class="btn-breaking" onclick="insertBreaking('🚨 URGENT')">🚨 URGENT</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ MEDIA LIBRARY PANEL ══ -->
+    <div class="panel" id="panel-media">
+      <h2 class="panel-title">MEDIA LIBRARY 🎬</h2>
+
+      <div class="media-upload-zone" id="dropZone"
+        ondragover="event.preventDefault()" ondrop="handleDrop(event)">
+        <div class="drop-icon">📁</div>
+        <div class="drop-text">Drag & Drop or Click to Upload</div>
+        <div class="drop-sub">MP4, MKV, MOV · Max 4GB</div>
+        <input type="file" id="mediaFileInput" accept="video/*" style="display:none" onchange="handleFileSelect(event)" />
+        <button class="btn-secondary" onclick="document.getElementById('mediaFileInput').click()">📤 BROWSE FILES</button>
+      </div>
+
+      <div class="upload-progress" id="uploadProgress" style="display:none">
+        <div class="up-label">Uploading to Firebase Storage…</div>
+        <div class="up-bar-wrap"><div class="up-bar" id="upBar" style="width:0%"></div></div>
+        <div class="up-pct" id="upPct">0%</div>
+      </div>
+
+      <div class="media-grid" id="mediaGrid">
+        <div class="media-card">
+          <div class="mc-thumb">🎬</div>
+          <div class="mc-title">Morning Intro.mp4</div>
+          <div class="mc-meta">5:00 · 120MB</div>
+          <div class="mc-actions">
+            <button onclick="previewMedia('morning')">▶</button>
+            <button onclick="addToQueue('morning')">➕</button>
+            <button onclick="deleteMedia('morning')">🗑</button>
+          </div>
+        </div>
+        <div class="media-card">
+          <div class="mc-thumb">📺</div>
+          <div class="mc-title">Channel Promo.mp4</div>
+          <div class="mc-meta">1:30 · 45MB</div>
+          <div class="mc-actions">
+            <button onclick="previewMedia('promo')">▶</button>
+            <button onclick="addToQueue('promo')">➕</button>
+            <button onclick="deleteMedia('promo')">🗑</button>
+          </div>
+        </div>
+        <div class="media-card">
+          <div class="mc-thumb">🎵</div>
+          <div class="mc-title">Filler Loop 01.mp4</div>
+          <div class="mc-meta">3:00 · 80MB</div>
+          <div class="mc-actions">
+            <button onclick="previewMedia('filler')">▶</button>
+            <button onclick="addToQueue('filler')">➕</button>
+            <button onclick="deleteMedia('filler')">🗑</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ANALYTICS PANEL ══ -->
+    <div class="panel" id="panel-analytics">
+      <h2 class="panel-title">ANALYTICS 📊</h2>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-val" id="statViewers">–</div>
+          <div class="stat-label">LIVE VIEWERS</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="statUptime">99.9%</div>
+          <div class="stat-label">UPTIME</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="statBitrate">4.2Mbps</div>
+          <div class="stat-label">BITRATE</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="statBuffer">0.1s</div>
+          <div class="stat-label">BUFFER</div>
+        </div>
+      </div>
+
+      <div class="chart-area">
+        <h3 class="sub-title">VIEWER TREND (LIVE)</h3>
+        <canvas id="viewerChart" width="100%" height="120"></canvas>
+      </div>
+
+      <div class="log-box">
+        <h3 class="sub-title">SYSTEM LOG</h3>
+        <div class="log-list" id="logList">
+          <div class="log-entry info">[INFO] System initialized</div>
+          <div class="log-entry info">[INFO] Firebase connected</div>
+          <div class="log-entry success">[OK] Stream engine ready</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SETTINGS PANEL ══ -->
+    <div class="panel" id="panel-settings">
+      <h2 class="panel-title">SETTINGS ⚙</h2>
+
+      <div class="overlay-section">
+        <h3 class="sub-title">FIREBASE CONFIG</h3>
+        <label class="cfg-label">Project ID</label>
+        <input class="cfg-input" id="cfgProjectId" value="ramadan-2385b" />
+        <label class="cfg-label">Database URL</label>
+        <input class="cfg-input" id="cfgDbUrl" value="https://ramadan-2385b-default-rtdb.firebaseio.com" />
+        <label class="cfg-label">Storage Bucket</label>
+        <input class="cfg-input" id="cfgBucket" value="ramadan-2385b.firebasestorage.app" />
+      </div>
+
+      <div class="overlay-section">
+        <h3 class="sub-title">STREAM SETTINGS</h3>
+        <label class="cfg-label">HLS Segment Duration (s)</label>
+        <input class="cfg-input" type="number" id="cfgHlsSeg" value="6" />
+        <label class="cfg-label">DVR Window (s)</label>
+        <input class="cfg-input" type="number" id="cfgDvr" value="300" />
+        <label class="cfg-label">Output Resolution</label>
+        <select class="cfg-input" id="cfgRes">
+          <option value="1080p">1080p HD</option>
+          <option value="720p">720p HD</option>
+          <option value="480p">480p SD</option>
+        </select>
+      </div>
+
+      <div class="overlay-section">
+        <h3 class="sub-title">CHANNEL MANAGEMENT</h3>
+        <button class="btn-save" onclick="addChannel()">➕ ADD CHANNEL</button>
+        <div id="channelList" class="channel-list-cfg">
+          <div class="ch-row"><span>CH1 — MI LIVE 1</span><button onclick="editChannel(1)">✏</button><button onclick="deleteChannel(1)">🗑</button></div>
+          <div class="ch-row"><span>CH2 — MI LIVE 2</span><button onclick="editChannel(2)">✏</button><button onclick="deleteChannel(2)">🗑</button></div>
+        </div>
+      </div>
+
+      <button class="btn-save" style="width:100%;margin-top:1rem" onclick="saveAllSettings()">💾 SAVE ALL SETTINGS</button>
+    </div>
+
+  </aside>
+</main>
+
+<!-- ══════════════════════════════════════════════════════
+     TOAST NOTIFICATIONS
+═══════════════════════════════════════════════════════ -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ══════════════════════════════════════════════════════
+     FIREBASE SDKs
+═══════════════════════════════════════════════════════ -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getDatabase, ref, set, get, onValue, push } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+  import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBbnU8DkthpYQMHOLLyj6M0cc05qXfjMcw",
+    authDomain: "ramadan-2385b.firebaseapp.com",
+    databaseURL: "https://ramadan-2385b-default-rtdb.firebaseio.com",
+    projectId: "ramadan-2385b",
+    storageBucket: "ramadan-2385b.firebasestorage.app",
+    messagingSenderId: "882828936310",
+    appId: "1:882828936310:web:7f97b921031fe130fe4b57"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const storage = getStorage(app);
+
+  // Expose to window for non-module scripts
+  window._db = db;
+  window._storage = storage;
+  window._ref = ref;
+  window._set = set;
+  window._get = get;
+  window._onValue = onValue;
+  window._push = push;
+  window._sRef = sRef;
+  window._uploadBytesResumable = uploadBytesResumable;
+  window._getDownloadURL = getDownloadURL;
+
+  // ── Bootstrap: load current channel schedule ──
+  const currentCh = window.currentChannel || 1;
+  loadScheduleFromFirebase(currentCh);
+  loadTickerFromFirebase(currentCh);
+
+  function loadScheduleFromFirebase(chId) {
+    const schedRef = ref(db, `channels/ch${chId}/schedule`);
+    onValue(schedRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        window.renderScheduleTimeline(data);
+        window.renderQueue(data);
+        window.updateNowPlaying(data);
+      }
+    });
+  }
+
+  function loadTickerFromFirebase(chId) {
+    const tickRef = ref(db, `channels/ch${chId}/ticker`);
+    onValue(tickRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data && data.text) {
+        document.getElementById('pattiScrollText').innerHTML = data.text;
+        document.getElementById('tickerText').value = data.text;
+      }
+    });
+  }
+
+  // ── File Upload to Firebase Storage ──
+  window.uploadFileToFirebase = function(file, progressCb, doneCb) {
+    const storageRef = sRef(storage, `media/${Date.now()}_${file.name}`);
+    const uploadTask = uploadBytesResumable(storageRef, file);
+    uploadTask.on('state_changed',
+      (snap) => { progressCb(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)); },
+      (err) => { console.error(err); },
+      async () => {
+        const url = await getDownloadURL(uploadTask.snapshot.ref);
+        doneCb(url, file.name);
+      }
+    );
+  };
+
+  // ── Save ticker to Firebase ──
+  window.saveTickerToFirebase = function(chId, text) {
+    set(ref(db, `channels/ch${chId}/ticker`), { text, updatedAt: Date.now() });
+  };
+
+  // ── Save schedule entry ──
+  window.saveScheduleEntry = function(chId, entry) {
+    push(ref(db, `channels/ch${chId}/schedule`), entry);
+  };
+
+  // ── Save filler config ──
+  window.saveFillerToFirebase = function(chId, config) {
+    set(ref(db, `channels/ch${chId}/filler`), config);
+  };
+
+  // ── Save overlay settings ──
+  window.saveOverlayToFirebase = function(chId, settings) {
+    set(ref(db, `channels/ch${chId}/overlays`), settings);
+  };
+
+  window.firebaseReady = true;
+  window.showToast('Firebase connected ✅', 'success');
+</script>
+
+<script src="app.js"></script>
+</body>
+</html>

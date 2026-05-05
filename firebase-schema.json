@@ -1,0 +1,135 @@
+{
+  "channels": {
+    "ch1": {
+      "info": {
+        "name": "MI LIVE 1",
+        "channelId": 1,
+        "timezone": "Asia/Karachi",
+        "createdAt": 0
+      },
+      "filler": {
+        "url": "https://example.com/filler.mp4",
+        "promoUrl": "https://example.com/promo.mp4",
+        "gapThreshold": 5,
+        "updatedAt": 0
+      },
+      "ticker": {
+        "text": "خوش آمدید MI LIVE TV میں 🎉   Breaking: Latest updates from around the world 🌍   آج کا پروگرام شروع ہونے والا ہے   Stay tuned for more exciting content! 📺",
+        "speed": 25,
+        "bgColor": "#cc0000",
+        "textColor": "#ffffff",
+        "lang": "mixed",
+        "updatedAt": 0
+      },
+      "overlays": {
+        "logo": true,
+        "clock": true,
+        "ticker": true,
+        "branding": false,
+        "logo_text": "📡 MI LIVE",
+        "logo_pos": "top-left"
+      },
+      "programTemplate": {
+        "mon-morning-news": {
+          "dayOfWeek": 0,
+          "startHour": 7,
+          "startMin": 0,
+          "duration": "00:30:00",
+          "title": "Morning News Bulletin",
+          "videoUrl": "https://example.com/morning-news.mp4",
+          "type": "news"
+        },
+        "mon-documentary": {
+          "dayOfWeek": 0,
+          "startHour": 8,
+          "startMin": 0,
+          "duration": "00:45:00",
+          "title": "Nature Documentary",
+          "videoUrl": "https://example.com/documentary.mp4",
+          "type": "program"
+        },
+        "tue-morning-news": {
+          "dayOfWeek": 1,
+          "startHour": 7,
+          "startMin": 0,
+          "duration": "00:30:00",
+          "title": "Morning News Bulletin",
+          "videoUrl": "https://example.com/morning-news.mp4",
+          "type": "news"
+        }
+      },
+      "schedule": {
+        "EXAMPLE_ENTRY_REPLACE_WITH_REAL": {
+          "title": "Example Program",
+          "start": "2025-01-01T07:00:00+05:00",
+          "duration": "00:30:00",
+          "videoUrl": "https://example.com/program.mp4",
+          "type": "program",
+          "channelId": 1,
+          "createdAt": 0,
+          "autoFilled": false
+        }
+      },
+      "media": {
+        "EXAMPLE_MEDIA_REPLACE": {
+          "name": "example-video.mp4",
+          "url": "https://firebasestorage.googleapis.com/...",
+          "uploadedAt": 0
+        }
+      },
+      "schedulerMeta": {
+        "lastRun": 0,
+        "daysScheduled": 30,
+        "totalEntries": 0,
+        "channelId": 1,
+        "generatedAt": ""
+      },
+      "analytics": {
+        "requests": {}
+      }
+    },
+    "ch2": {
+      "info": {
+        "name": "MI LIVE 2",
+        "channelId": 2,
+        "timezone": "Asia/Karachi",
+        "createdAt": 0
+      },
+      "filler": {
+        "url": "https://example.com/filler.mp4",
+        "promoUrl": "https://example.com/promo.mp4",
+        "gapThreshold": 5,
+        "updatedAt": 0
+      },
+      "ticker": {
+        "text": "MI LIVE 2 — Welcome to our second channel 📺",
+        "speed": 25,
+        "bgColor": "#003399",
+        "textColor": "#ffffff",
+        "lang": "en",
+        "updatedAt": 0
+      },
+      "overlays": {
+        "logo": true,
+        "clock": true,
+        "ticker": true,
+        "branding": false,
+        "logo_text": "📡 MI LIVE 2",
+        "logo_pos": "top-right"
+      },
+      "programTemplate": {},
+      "schedule": {},
+      "media": {},
+      "schedulerMeta": {
+        "lastRun": 0,
+        "daysScheduled": 0,
+        "totalEntries": 0,
+        "channelId": 2,
+        "generatedAt": ""
+      },
+      "analytics": {
+        "requests": {}
+      }
+    }
+  }
+}

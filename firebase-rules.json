@@ -1,0 +1,15 @@
+{
+  "rules": {
+    "channels": {
+      "$channelId": {
+        ".read": true,
+        ".write": "auth != null",
+        "analytics": {
+          "requests": {
+            ".write": true
+          }
+        }
+      }
+    }
+  }
+}

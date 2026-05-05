@@ -1,0 +1,21 @@
+{
+  "name": "mi-live-tv",
+  "version": "1.0.0",
+  "description": "MI LIVE TV — Cloud Broadcast Playout Engine & Control Room",
+  "main": "api/stream.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod",
+    "lint": "eslint api/**/*.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  },
+  "devDependencies": {
+    "vercel": "^34.0.0"
+  },
+  "engines": {
+    "node": ">=18.x"
+  },
+  "license": "MIT"
+}
