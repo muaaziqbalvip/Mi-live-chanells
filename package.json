@@ -1,15 +1,15 @@
 {
   "name": "mi-live-tv",
-  "version": "1.0.0",
-  "description": "MI LIVE TV — Cloud Broadcast Playout Engine & Control Room",
+  "version": "2.0.0",
+  "description": "MI Live TV System — 24/7 Cloud TV Playout & Control Room",
   "main": "api/stream.js",
   "scripts": {
     "dev": "vercel dev",
     "deploy": "vercel --prod",
-    "lint": "eslint api/**/*.js"
+    "playout": "python3 scripts/playout.py"
   },
   "dependencies": {
-    "firebase-admin": "^12.0.0"
+    "firebase": "^10.12.0"
   },
   "devDependencies": {
     "vercel": "^34.0.0"
@@ -17,5 +17,6 @@
   "engines": {
     "node": ">=18.x"
   },
-  "license": "MIT"
+  "author": "Admin Maaz — Muslim Islam Network",
+  "license": "UNLICENSED"
 }

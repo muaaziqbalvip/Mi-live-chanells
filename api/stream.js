@@ -1,223 +1,184 @@
 /**
- * MI LIVE TV — /api/stream.js
- * Vercel Serverless Function — Dynamic M3U8 HLS Generator
- * Serves a valid HLS manifest based on the current Firebase schedule.
+ * MI LIVE TV SYSTEM — /api/stream.js
+ * Vercel Serverless Function: Serves live M3U8 playlist link with fallback logic.
+ * Always warm via stale-while-revalidate. Never returns null.
  */
 
-const { initializeApp, getApps } = require('firebase-admin/app');
-const { getDatabase }            = require('firebase-admin/database');
-const { credential }             = require('firebase-admin');
+const { initializeApp, getApps } = require("firebase/app");
+const { getDatabase, ref, get, set } = require("firebase/database");
 
-// ─── Firebase Admin Init (singleton) ───────────────────────────────────────
+// ─── Firebase Config ────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyBbnU8DkthpYQMHOLLyj6M0cc05qXfjMcw",
+  authDomain: "ramadan-2385b.firebaseapp.com",
+  databaseURL: "https://ramadan-2385b-default-rtdb.firebaseio.com",
+  projectId: "ramadan-2385b",
+  storageBucket: "ramadan-2385b.firebasestorage.app",
+  messagingSenderId: "882828936310",
+  appId: "1:882828936310:web:7f97b921031fe130fe4b57",
+};
+
+// ─── Emergency Fallback Links ────────────────────────────────────────────────
+const EMERGENCY_LOOP =
+  "https://firebasestorage.googleapis.com/v0/b/ramadan-2385b.firebasestorage.app/o/filler_loop.m3u8?alt=media";
+const EMERGENCY_LINKS = {
+  1: EMERGENCY_LOOP,
+  2: EMERGENCY_LOOP,
+  3: EMERGENCY_LOOP,
+};
+
+// ─── Initialize Firebase (singleton safe for serverless) ────────────────────
 function getFirebaseApp() {
-  if (getApps().length > 0) return getApps()[0];
-  return initializeApp({
-    credential: credential.cert({
-      projectId:   process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey:  (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
-    }),
-    databaseURL: process.env.FIREBASE_DATABASE_URL,
-  });
+  if (getApps().length === 0) {
+    return initializeApp(firebaseConfig);
+  }
+  return getApps()[0];
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-function parseDuration(durationStr) {
-  // "HH:MM:SS" → seconds
-  const parts = (durationStr || '00:30:00').split(':').map(Number);
-  return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
-}
+// ─── Time-based playout calculator ──────────────────────────────────────────
+function getCurrentShow(schedule) {
+  if (!schedule || !Array.isArray(schedule) || schedule.length === 0) {
+    return null;
+  }
 
-function getNowPlayingEntry(scheduleMap) {
-  const now     = Date.now();
-  const entries = Object.values(scheduleMap || {});
+  const now = Date.now();
+  const scheduleStart = schedule[0].start_ts * 1000;
 
-  for (const entry of entries) {
-    const start    = new Date(entry.start).getTime();
-    const durSec   = parseDuration(entry.duration);
-    const end      = start + durSec * 1000;
-    if (now >= start && now < end) {
-      return { ...entry, elapsedSec: Math.floor((now - start) / 1000), totalSec: durSec };
+  // Calculate elapsed seconds from schedule start
+  const elapsed = Math.floor((now - scheduleStart) / 1000);
+  const totalDuration = schedule.reduce((sum, s) => sum + (s.duration || 0), 0);
+
+  // Loop the schedule for infinite 30-day repeat
+  const loopedElapsed = totalDuration > 0 ? elapsed % totalDuration : 0;
+
+  let cursor = 0;
+  for (const show of schedule) {
+    const dur = show.duration || 0;
+    if (loopedElapsed >= cursor && loopedElapsed < cursor + dur) {
+      return {
+        ...show,
+        offset: loopedElapsed - cursor,
+        remaining: dur - (loopedElapsed - cursor),
+      };
     }
-  }
-  return null;
-}
-
-function getNextEntry(scheduleMap) {
-  const now     = Date.now();
-  const entries = Object.values(scheduleMap || {})
-    .filter(e => new Date(e.start).getTime() > now)
-    .sort((a, b) => new Date(a.start) - new Date(b.start));
-  return entries[0] || null;
-}
-
-/**
- * Build a valid HLS M3U8 manifest.
- * For a proxy-based live stream we generate a sliding window manifest.
- * For direct MP4 URLs we use an EXT-X-DISCONTINUITY approach.
- */
-function buildM3U8(entry, fillerUrl, channelId) {
-  const segDuration = 6; // seconds per HLS segment
-
-  if (!entry || !entry.videoUrl) {
-    // No live content → serve filler
-    return buildFillerM3U8(fillerUrl || 'https://example.com/filler.mp4', segDuration, channelId);
+    cursor += dur;
   }
 
-  const videoUrl    = entry.videoUrl;
-  const elapsed     = entry.elapsedSec || 0;
-  const remaining   = (entry.totalSec || 1800) - elapsed;
-  const mediaSeq    = Math.floor(elapsed / segDuration);
-  const windowSize  = 5; // segments in live window
-
-  const lines = [
-    '#EXTM3U',
-    '#EXT-X-VERSION:3',
-    `#EXT-X-TARGETDURATION:${segDuration}`,
-    `#EXT-X-MEDIA-SEQUENCE:${mediaSeq}`,
-    `#EXT-X-PROGRAM-DATE-TIME:${new Date().toISOString()}`,
-    `## Channel: ${channelId} | Program: ${entry.title || 'Unknown'} | Type: ${entry.type || 'program'}`,
-    '',
-  ];
-
-  // Add live sliding window segments
-  for (let i = 0; i < windowSize; i++) {
-    const segStart = (mediaSeq + i) * segDuration;
-    lines.push(`#EXTINF:${segDuration}.000,`);
-    // Segment URL with byte-range offset encoded as query params
-    lines.push(`${videoUrl}?t=${segStart}&dur=${segDuration}&ch=${channelId}`);
-  }
-
-  // If program is ending soon, queue filler
-  if (remaining <= segDuration * windowSize && fillerUrl) {
-    lines.push('#EXT-X-DISCONTINUITY');
-    lines.push(`#EXTINF:${segDuration}.000,`);
-    lines.push(`${fillerUrl}?filler=1&ch=${channelId}`);
-  }
-
-  return lines.join('\n');
+  // Fallback: return last show
+  return { ...schedule[schedule.length - 1], offset: 0, remaining: 0 };
 }
 
-function buildFillerM3U8(fillerUrl, segDuration, channelId) {
-  const mediaSeq = Math.floor(Date.now() / 1000 / segDuration);
-  return [
-    '#EXTM3U',
-    '#EXT-X-VERSION:3',
-    `#EXT-X-TARGETDURATION:${segDuration}`,
-    `#EXT-X-MEDIA-SEQUENCE:${mediaSeq}`,
-    `## Channel: ${channelId} | Mode: FILLER`,
-    '',
-    `#EXTINF:${segDuration}.000,`,
-    `${fillerUrl}?filler=1&ch=${channelId}&t=${mediaSeq * segDuration}`,
-    `#EXTINF:${segDuration}.000,`,
-    `${fillerUrl}?filler=1&ch=${channelId}&t=${(mediaSeq+1) * segDuration}`,
-    `#EXTINF:${segDuration}.000,`,
-    `${fillerUrl}?filler=1&ch=${channelId}&t=${(mediaSeq+2) * segDuration}`,
-    `#EXTINF:${segDuration}.000,`,
-    `${fillerUrl}?filler=1&ch=${channelId}&t=${(mediaSeq+3) * segDuration}`,
-    `#EXTINF:${segDuration}.000,`,
-    `${fillerUrl}?filler=1&ch=${channelId}&t=${(mediaSeq+4) * segDuration}`,
-  ].join('\n');
-}
-
-function buildMasterM3U8(channelId) {
-  const base = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : 'http://localhost:3000';
+// ─── Build M3U8 Redirect Playlist ───────────────────────────────────────────
+function buildM3U8(show, channelId) {
+  const link = show?.stream_url || EMERGENCY_LINKS[channelId] || EMERGENCY_LOOP;
+  const title = show?.title || "MI Live TV";
 
   return [
-    '#EXTM3U',
-    '#EXT-X-VERSION:3',
-    `## MI LIVE TV — Master Playlist — Channel ${channelId}`,
-    '',
-    '#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080,NAME="1080p"',
-    `${base}/api/stream?channelId=${channelId}&quality=1080p`,
-    '',
-    '#EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=1280x720,NAME="720p"',
-    `${base}/api/stream?channelId=${channelId}&quality=720p`,
-    '',
-    '#EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=854x480,NAME="480p"',
-    `${base}/api/stream?channelId=${channelId}&quality=480p`,
-  ].join('\n');
+    "#EXTM3U",
+    `#EXT-X-VERSION:3`,
+    `#EXTINF:-1 tvg-id="mitv-ch${channelId}" tvg-name="${title}" group-title="MI Live TV",${title}`,
+    link,
+  ].join("\n");
+}
+
+// ─── Log stream access to Firebase ──────────────────────────────────────────
+async function logAccess(db, channelId, show) {
+  try {
+    const logRef = ref(db, `mitv/stream_logs/ch${channelId}`);
+    await set(logRef, {
+      last_access: Date.now(),
+      current_show: show?.title || "Unknown",
+      stream_url: show?.stream_url || EMERGENCY_LOOP,
+      ts: new Date().toISOString(),
+    });
+  } catch (_) {
+    // Non-critical, don't fail stream on log error
+  }
 }
 
 // ─── Main Handler ────────────────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  const channelId = parseInt(req.query.ch || "1", 10);
 
-  if (req.method === 'OPTIONS') {
+  if (![1, 2, 3].includes(channelId)) {
+    return res.status(400).json({ error: "Invalid channel. Use ?ch=1, ?ch=2, or ?ch=3" });
+  }
+
+  // Cache headers: serve instantly, refresh in background
+  res.setHeader(
+    "Cache-Control",
+    "public, max-age=30, stale-while-revalidate=60, stale-if-error=600"
+  );
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+
+  if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { channelId = '1', master = 'false', quality } = req.query;
-  const chId = parseInt(channelId) || 1;
-
-  // Serve master playlist
-  if (master === 'true') {
-    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    return res.status(200).send(buildMasterM3U8(chId));
-  }
+  let show = null;
 
   try {
     const app = getFirebaseApp();
-    const db  = getDatabase(app);
+    const db = getDatabase(app);
 
-    // Fetch schedule and filler config in parallel
-    const [scheduleSnap, fillerSnap, overlaySnap] = await Promise.all([
-      db.ref(`channels/ch${chId}/schedule`).once('value'),
-      db.ref(`channels/ch${chId}/filler`).once('value'),
-      db.ref(`channels/ch${chId}/overlays`).once('value'),
-    ]);
+    // Fetch schedule for this channel
+    const scheduleRef = ref(db, `mitv/schedules/ch${channelId}`);
+    const snapshot = await get(scheduleRef);
 
-    const scheduleMap = scheduleSnap.val() || {};
-    const fillerCfg   = fillerSnap.val()   || {};
-    const fillerUrl   = fillerCfg.url || process.env.DEFAULT_FILLER_URL || 'https://example.com/filler.mp4';
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      const scheduleArray = Array.isArray(data) ? data : Object.values(data);
+      show = getCurrentShow(scheduleArray);
+    }
 
-    // Find what's on right now
-    const nowPlaying = getNowPlayingEntry(scheduleMap);
-    const nextUp     = getNextEntry(scheduleMap);
+    // Fetch override if set by admin (emergency override)
+    const overrideRef = ref(db, `mitv/overrides/ch${channelId}`);
+    const overrideSnap = await get(overrideRef);
+    if (overrideSnap.exists()) {
+      const override = overrideSnap.val();
+      if (override.active && override.stream_url) {
+        show = {
+          title: override.title || "Override",
+          stream_url: override.stream_url,
+          offset: 0,
+          remaining: 99999,
+        };
+      }
+    }
 
-    // Log to Firebase for analytics
-    const logRef = db.ref(`channels/ch${chId}/analytics/requests`);
-    logRef.push({
-      timestamp: Date.now(),
-      ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown',
-      quality: quality || 'default',
-      hasContent: !!nowPlaying,
-    }).catch(() => {}); // Non-blocking
-
-    // Build M3U8 response
-    const m3u8 = buildM3U8(nowPlaying, fillerUrl, chId);
-
-    // Response headers — HLS standard
-    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    res.setHeader('X-MI-Channel', chId.toString());
-    res.setHeader('X-MI-Now-Playing', nowPlaying?.title || 'FILLER');
-    res.setHeader('X-MI-Next-Up', nextUp?.title || 'UNKNOWN');
-
-    return res.status(200).send(m3u8);
-
+    // Log access (non-blocking)
+    logAccess(db, channelId, show);
   } catch (err) {
-    console.error('[stream.js] Firebase error:', err.message);
-
-    // Fallback: serve filler manifest so stream never fully breaks
-    const fallbackFiller = process.env.DEFAULT_FILLER_URL || 'https://example.com/filler.mp4';
-    const fallback = buildFillerM3U8(fallbackFiller, 6, chId);
-
-    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('X-MI-Fallback', 'true');
-    return res.status(200).send(fallback);
+    console.error(`[MI TV] Firebase error for ch${channelId}:`, err.message);
+    // Fall through to emergency mode
   }
+
+  // If we got no valid show, use emergency fallback
+  if (!show || !show.stream_url) {
+    show = {
+      title: "MI Live TV — Emergency Loop",
+      stream_url: EMERGENCY_LINKS[channelId] || EMERGENCY_LOOP,
+      offset: 0,
+      remaining: 99999,
+    };
+  }
+
+  // Serve as M3U8 or JSON depending on accept header
+  const wantsJSON =
+    req.headers.accept?.includes("application/json") || req.query.format === "json";
+
+  if (wantsJSON) {
+    return res.status(200).json({
+      channel: channelId,
+      current_show: show.title,
+      stream_url: show.stream_url,
+      offset_seconds: show.offset || 0,
+      remaining_seconds: show.remaining || 0,
+      ts: new Date().toISOString(),
+    });
+  }
+
+  res.setHeader("Content-Type", "application/x-mpegURL");
+  return res.status(200).send(buildM3U8(show, channelId));
 };

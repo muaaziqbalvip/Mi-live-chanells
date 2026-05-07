@@ -1,0 +1,2375 @@
+<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📺 MI Live TV — Control Room</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;500;600;700&family=Orbitron:wght@400;700;900&family=Bebas+Neue&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, onValue, set, get, push, update, remove }
+      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    window._fb = { initializeApp, getDatabase, ref, onValue, set, get, push, update, remove };
+  </script>
+
+  <style>
+    /* ─── Variables ─────────────────────────────────────────────────────── */
+    :root {
+      --gold:       #d4af37;
+      --gold-dim:   #a8892a;
+      --red:        #cc2200;
+      --green:      #00cc66;
+      --bg-deep:    #050510;
+      --bg-panel:   #0d0d1f;
+      --bg-card:    #12122a;
+      --bg-input:   #1a1a35;
+      --border:     rgba(212,175,55,0.2);
+      --text:       #e8e8ff;
+      --text-dim:   #8888aa;
+      --urdu-font:  "Noto Nastaliq Urdu","Jameel Noori Nastaliq",serif;
+    }
+
+    /* ─── Reset & Base ──────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background:   var(--bg-deep);
+      color:        var(--text);
+      font-family:  'Inter', sans-serif;
+      min-height:   100vh;
+      overflow-x:   hidden;
+    }
+
+    /* ─── Scanline Background ───────────────────────────────────────────── */
+    body::before {
+      content:   "";
+      position:  fixed;
+      inset:     0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.15) 2px,
+        rgba(0,0,0,0.15) 4px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* ─── Header ────────────────────────────────────────────────────────── */
+    .header {
+      background:   linear-gradient(135deg, #0a0a1f 0%, #0d0d2b 50%, #0a0a1f 100%);
+      border-bottom: 2px solid var(--gold);
+      padding:      0 24px;
+      height:       64px;
+      display:      flex;
+      align-items:  center;
+      justify-content: space-between;
+      position:     sticky;
+      top:          0;
+      z-index:      1000;
+      box-shadow:   0 4px 20px rgba(0,0,0,0.5), 0 0 40px rgba(212,175,55,0.1);
+    }
+
+    .header-logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size:   1.8rem;
+      letter-spacing: 4px;
+      color:       var(--gold);
+      text-shadow: 0 0 20px rgba(212,175,55,0.5);
+      display:     flex;
+      align-items: center;
+      gap:         10px;
+    }
+
+    .header-logo .dot {
+      width:        10px;
+      height:       10px;
+      background:   var(--red);
+      border-radius: 50%;
+      animation:    blink 1s step-end infinite;
+      box-shadow:   0 0 8px var(--red);
+    }
+
+    /* ─── Nav Tabs ──────────────────────────────────────────────────────── */
+    .nav-tabs {
+      display:      flex;
+      gap:          4px;
+      background:   rgba(0,0,0,0.3);
+      padding:      4px;
+      border-radius: 8px;
+      border:       1px solid var(--border);
+    }
+
+    .nav-tab {
+      padding:      8px 18px;
+      border-radius: 6px;
+      cursor:       pointer;
+      font-size:    0.8rem;
+      font-weight:  600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transition:   all 0.2s;
+      color:        var(--text-dim);
+      border:       1px solid transparent;
+      white-space:  nowrap;
+    }
+
+    .nav-tab:hover {
+      color:        var(--text);
+      background:   rgba(212,175,55,0.05);
+    }
+
+    .nav-tab.active {
+      background:   var(--gold);
+      color:        #000;
+      border-color: var(--gold);
+      box-shadow:   0 0 12px rgba(212,175,55,0.4);
+    }
+
+    /* ─── Channel Tabs ──────────────────────────────────────────────────── */
+    .ch-tabs {
+      display:      flex;
+      gap:          8px;
+      margin-bottom: 20px;
+    }
+
+    .ch-tab {
+      padding:      8px 20px;
+      border-radius: 6px;
+      cursor:       pointer;
+      font-family:  'Orbitron', monospace;
+      font-size:    0.75rem;
+      font-weight:  700;
+      letter-spacing: 2px;
+      transition:   all 0.2s;
+      color:        var(--text-dim);
+      border:       1px solid var(--border);
+      background:   var(--bg-card);
+    }
+
+    .ch-tab.active {
+      color:        #000;
+      background:   var(--gold);
+      border-color: var(--gold);
+      box-shadow:   0 0 16px rgba(212,175,55,0.4);
+    }
+
+    /* ─── Main Layout ───────────────────────────────────────────────────── */
+    .main {
+      padding:      24px;
+      max-width:    1600px;
+      margin:       0 auto;
+      position:     relative;
+      z-index:      2;
+    }
+
+    /* ─── Page Sections ─────────────────────────────────────────────────── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ─── Cards ─────────────────────────────────────────────────────────── */
+    .card {
+      background:   var(--bg-card);
+      border:       1px solid var(--border);
+      border-radius: 12px;
+      padding:      20px;
+      position:     relative;
+      overflow:     hidden;
+    }
+
+    .card::before {
+      content:   "";
+      position:  absolute;
+      top:       0; left:  0; right:  0;
+      height:    1px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      opacity:   0.5;
+    }
+
+    .card-title {
+      font-family:  'Bebas Neue', sans-serif;
+      font-size:    1.1rem;
+      letter-spacing: 3px;
+      color:        var(--gold);
+      margin-bottom: 16px;
+      display:      flex;
+      align-items:  center;
+      gap:          8px;
+    }
+
+    /* ─── Stats Grid ─────────────────────────────────────────────────────── */
+    .stats-grid {
+      display:       grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap:           16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background:    var(--bg-card);
+      border:        1px solid var(--border);
+      border-radius: 10px;
+      padding:       16px;
+      text-align:    center;
+      position:      relative;
+      overflow:      hidden;
+      transition:    all 0.3s;
+    }
+
+    .stat-card:hover {
+      border-color:  rgba(212,175,55,0.5);
+      box-shadow:    0 0 20px rgba(212,175,55,0.1);
+    }
+
+    .stat-value {
+      font-family:   'Orbitron', monospace;
+      font-size:     2rem;
+      font-weight:   700;
+      color:         var(--gold);
+      line-height:   1;
+      margin:        8px 0 4px;
+      text-shadow:   0 0 10px rgba(212,175,55,0.3);
+    }
+
+    .stat-label {
+      font-size:     0.7rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color:         var(--text-dim);
+    }
+
+    /* ─── Now Playing ───────────────────────────────────────────────────── */
+    .now-playing {
+      background:    linear-gradient(135deg, #0d0d1f 0%, #1a0a00 100%);
+      border:        1px solid rgba(204, 34, 0, 0.4);
+      border-radius: 12px;
+      padding:       20px;
+      margin-bottom: 24px;
+      position:      relative;
+      overflow:      hidden;
+    }
+
+    .now-playing::before {
+      content:   "";
+      position:  absolute;
+      top: 0; left: 0;
+      width:     4px;
+      height:    100%;
+      background: var(--red);
+      animation: blink 1s step-end infinite;
+    }
+
+    .np-label {
+      font-family:   'Bebas Neue', sans-serif;
+      font-size:     0.8rem;
+      letter-spacing: 4px;
+      color:         var(--red);
+      display:       flex;
+      align-items:   center;
+      gap:           8px;
+      margin-bottom: 8px;
+    }
+
+    .np-label .dot {
+      width: 8px; height: 8px;
+      background: var(--red);
+      border-radius: 50%;
+      animation: blink 1s step-end infinite;
+      box-shadow: 0 0 6px var(--red);
+    }
+
+    .np-title {
+      font-family:   var(--urdu-font);
+      font-size:     1.6rem;
+      direction:     rtl;
+      text-align:    right;
+      line-height:   2.2;
+      color:         var(--text);
+    }
+
+    .np-url {
+      font-family:   'Inter', monospace;
+      font-size:     0.72rem;
+      color:         var(--text-dim);
+      word-break:    break-all;
+      margin-top:    8px;
+      padding:       8px;
+      background:    rgba(0,0,0,0.3);
+      border-radius: 4px;
+      direction:     ltr;
+      text-align:    left;
+    }
+
+    /* ─── Inputs ────────────────────────────────────────────────────────── */
+    input[type="text"],
+    input[type="url"],
+    input[type="number"],
+    input[type="time"],
+    textarea,
+    select {
+      background:    var(--bg-input);
+      border:        1px solid var(--border);
+      border-radius: 6px;
+      color:         var(--text);
+      padding:       10px 14px;
+      font-size:     0.9rem;
+      font-family:   'Inter', sans-serif;
+      width:         100%;
+      outline:       none;
+      transition:    border-color 0.2s;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color:  var(--gold);
+      box-shadow:    0 0 0 2px rgba(212,175,55,0.15);
+    }
+
+    input.urdu-input, textarea.urdu-input {
+      font-family:   var(--urdu-font);
+      direction:     rtl;
+      text-align:    right;
+      font-size:     1.1rem;
+      line-height:   2.0;
+    }
+
+    label {
+      font-size:     0.75rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color:         var(--text-dim);
+      display:       block;
+      margin-bottom: 6px;
+    }
+
+    /* ─── Buttons ───────────────────────────────────────────────────────── */
+    .btn {
+      display:       inline-flex;
+      align-items:   center;
+      gap:           8px;
+      padding:       10px 20px;
+      border-radius: 6px;
+      font-size:     0.85rem;
+      font-weight:   600;
+      cursor:        pointer;
+      transition:    all 0.2s;
+      border:        1px solid transparent;
+      letter-spacing: 1px;
+      white-space:   nowrap;
+    }
+
+    .btn-gold {
+      background:    var(--gold);
+      color:         #000;
+      border-color:  var(--gold);
+    }
+    .btn-gold:hover {
+      background:    #f0c740;
+      box-shadow:    0 0 16px rgba(212,175,55,0.5);
+    }
+
+    .btn-red {
+      background:    transparent;
+      color:         #ff4444;
+      border-color:  #ff4444;
+    }
+    .btn-red:hover {
+      background:    rgba(255,68,68,0.1);
+      box-shadow:    0 0 12px rgba(255,68,68,0.3);
+    }
+
+    .btn-green {
+      background:    transparent;
+      color:         var(--green);
+      border-color:  var(--green);
+    }
+    .btn-green:hover {
+      background:    rgba(0,204,102,0.1);
+    }
+
+    .btn-ghost {
+      background:    transparent;
+      color:         var(--text-dim);
+      border-color:  var(--border);
+    }
+    .btn-ghost:hover {
+      color:         var(--text);
+      border-color:  rgba(212,175,55,0.5);
+    }
+
+    .btn-sm {
+      padding:       6px 14px;
+      font-size:     0.75rem;
+    }
+
+    /* ─── Frame Editor ──────────────────────────────────────────────────── */
+    .frame-editor {
+      background:    #000;
+      border:        2px solid var(--border);
+      border-radius: 8px;
+      aspect-ratio:  16/9;
+      position:      relative;
+      overflow:      hidden;
+      cursor:        crosshair;
+    }
+
+    .frame-layer {
+      position:      absolute;
+      cursor:        move;
+      user-select:   none;
+    }
+
+    .frame-layer.selected {
+      outline:       2px dashed var(--gold);
+      outline-offset: 4px;
+    }
+
+    .frame-layer .resize-handle {
+      position:      absolute;
+      bottom:        -6px;
+      right:         -6px;
+      width:         12px;
+      height:        12px;
+      background:    var(--gold);
+      border-radius: 2px;
+      cursor:        se-resize;
+    }
+
+    /* ─── Schedule Table ─────────────────────────────────────────────────── */
+    .schedule-table {
+      width:         100%;
+      border-collapse: collapse;
+    }
+
+    .schedule-table th {
+      background:    rgba(212,175,55,0.1);
+      color:         var(--gold);
+      font-family:   'Bebas Neue', sans-serif;
+      letter-spacing: 2px;
+      font-size:     0.85rem;
+      padding:       10px 16px;
+      text-align:    left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .schedule-table td {
+      padding:       10px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-size:     0.85rem;
+      vertical-align: middle;
+    }
+
+    .schedule-table tr:hover td {
+      background:    rgba(212,175,55,0.03);
+    }
+
+    .schedule-table tr.live-row td {
+      background:    rgba(204,34,0,0.08);
+      border-left:   3px solid var(--red);
+    }
+
+    /* ─── Toggle Switch ─────────────────────────────────────────────────── */
+    .toggle-wrap {
+      display:       flex;
+      align-items:   center;
+      gap:           12px;
+    }
+
+    .toggle {
+      position:      relative;
+      width:         48px;
+      height:        26px;
+      cursor:        pointer;
+    }
+
+    .toggle input { display: none; }
+
+    .toggle-slider {
+      position:      absolute;
+      inset:         0;
+      background:    rgba(255,255,255,0.1);
+      border-radius: 26px;
+      transition:    background 0.2s;
+      border:        1px solid var(--border);
+    }
+
+    .toggle-slider::before {
+      content:       "";
+      position:      absolute;
+      left:          3px;
+      top:           3px;
+      width:         18px;
+      height:        18px;
+      background:    var(--text-dim);
+      border-radius: 50%;
+      transition:    all 0.2s;
+    }
+
+    .toggle input:checked + .toggle-slider {
+      background:    rgba(212,175,55,0.3);
+      border-color:  var(--gold);
+    }
+
+    .toggle input:checked + .toggle-slider::before {
+      left:          26px;
+      background:    var(--gold);
+      box-shadow:    0 0 8px rgba(212,175,55,0.6);
+    }
+
+    /* ─── Log Console ────────────────────────────────────────────────────── */
+    .log-console {
+      background:    #000;
+      border:        1px solid rgba(0,255,0,0.2);
+      border-radius: 8px;
+      padding:       16px;
+      height:        220px;
+      overflow-y:    auto;
+      font-family:   'Courier New', monospace;
+      font-size:     0.75rem;
+      line-height:   1.6;
+    }
+
+    .log-line { margin: 0; padding: 1px 0; }
+    .log-info    { color: #00cc66; }
+    .log-warn    { color: #ffaa00; }
+    .log-error   { color: #ff4444; }
+    .log-system  { color: #4488ff; }
+
+    /* ─── Progress Bar ──────────────────────────────────────────────────── */
+    .progress-bar {
+      height:        6px;
+      background:    rgba(255,255,255,0.1);
+      border-radius: 3px;
+      overflow:      hidden;
+      margin-top:    8px;
+    }
+
+    .progress-fill {
+      height:        100%;
+      background:    linear-gradient(90deg, var(--gold-dim), var(--gold));
+      border-radius: 3px;
+      transition:    width 1s linear;
+      box-shadow:    0 0 8px rgba(212,175,55,0.4);
+    }
+
+    /* ─── Ticker Preview ─────────────────────────────────────────────────── */
+    .ticker-preview {
+      background:    #000;
+      border:        1px solid var(--border);
+      border-radius: 6px;
+      height:        56px;
+      display:       flex;
+      align-items:   center;
+      overflow:      hidden;
+      margin-top:    12px;
+      position:      relative;
+    }
+
+    .ticker-label-prev {
+      flex-shrink:   0;
+      background:    var(--gold);
+      color:         #000;
+      height:        100%;
+      display:       flex;
+      align-items:   center;
+      padding:       0 14px;
+      font-family:   'Bebas Neue', sans-serif;
+      letter-spacing: 2px;
+      font-size:     0.85rem;
+    }
+
+    .ticker-scroll-prev {
+      flex:          1;
+      overflow:      hidden;
+      display:       flex;
+      align-items:   center;
+      direction:     rtl;
+    }
+
+    .ticker-inner-prev {
+      white-space:   nowrap;
+      font-family:   var(--urdu-font);
+      font-size:     1.3rem;
+      color:         #fff;
+      animation:     ticker-scroll 20s linear infinite;
+      padding-right: 40px;
+      direction:     rtl;
+    }
+
+    @keyframes ticker-scroll {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    /* ─── Clock Display ──────────────────────────────────────────────────── */
+    .clock-display {
+      font-family:   'Orbitron', monospace;
+      font-size:     2.4rem;
+      font-weight:   900;
+      color:         var(--gold);
+      letter-spacing: 6px;
+      text-shadow:   0 0 20px rgba(212,175,55,0.6);
+      text-align:    center;
+      padding:       16px;
+    }
+
+    .clock-date {
+      font-size:     0.75rem;
+      letter-spacing: 3px;
+      color:         var(--text-dim);
+      text-align:    center;
+      margin-top:    4px;
+    }
+
+    /* ─── Noise Overlay (for frame preview) ─────────────────────────────── */
+    .noise-layer {
+      position:      absolute;
+      inset:         0;
+      pointer-events: none;
+      opacity:       0.01;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 200px 200px;
+      mix-blend-mode: overlay;
+      animation:     noise-shift 0.08s steps(2) infinite;
+    }
+
+    @keyframes noise-shift {
+      0%   { background-position: 0px 0px; }
+      50%  { background-position: 50px 30px; }
+      100% { background-position: 10px 60px; }
+    }
+
+    /* ─── Utility ────────────────────────────────────────────────────────── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    .mb-4   { margin-bottom: 16px; }
+    .mb-6   { margin-bottom: 24px; }
+    .mb-2   { margin-bottom: 8px; }
+    .mt-4   { margin-top: 16px; }
+    .flex   { display: flex; }
+    .items-center { align-items: center; }
+    .gap-3  { gap: 12px; }
+    .gap-2  { gap: 8px; }
+    .flex-1 { flex: 1; }
+    .w-full { width: 100%; }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(212,175,55,0.2);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* ─── Scrollbar ──────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar       { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-deep); }
+    ::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 3px; }
+
+    /* ─── Responsive ─────────────────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .stats-grid       { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 600px) {
+      .header         { padding: 0 12px; }
+      .nav-tabs       { gap: 2px; }
+      .nav-tab        { padding: 6px 10px; font-size: 0.7rem; }
+      .main           { padding: 12px; }
+      .stats-grid     { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- ─── Noise Overlay (always on, 1% opacity for copyright modulation) ──── -->
+<div id="noiseOverlay" style="
+  position:fixed;inset:0;pointer-events:none;z-index:99999;opacity:0.01;
+  background-image:url('data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E');
+  background-size:200px 200px;mix-blend-mode:overlay;display:none;
+"></div>
+
+<!-- ─── Header ─────────────────────────────────────────────────────────── -->
+<header class="header">
+  <div class="header-logo">
+    <div class="dot"></div>
+    📺 MI LIVE TV
+    <span style="font-size:0.8rem;color:var(--text-dim);letter-spacing:1px;font-family:'Inter',sans-serif;font-weight:300;">CONTROL ROOM</span>
+  </div>
+
+  <!-- Broadcast Clock -->
+  <div style="text-align:center;">
+    <div id="liveClockHeader" style="font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:700;color:var(--gold);letter-spacing:3px;text-shadow:0 0 12px rgba(212,175,55,0.4);"></div>
+    <div id="liveDateHeader" style="font-size:0.6rem;letter-spacing:2px;color:var(--text-dim);margin-top:2px;"></div>
+  </div>
+
+  <!-- Nav Tabs -->
+  <nav class="nav-tabs" dir="ltr">
+    <div class="nav-tab active" onclick="showPage('dashboard')">📊 Dashboard</div>
+    <div class="nav-tab" onclick="showPage('frame-editor')">🎨 Frame</div>
+    <div class="nav-tab" onclick="showPage('schedule')">📅 Schedule</div>
+    <div class="nav-tab" onclick="showPage('ticker')">📰 Patti</div>
+    <div class="nav-tab" onclick="showPage('copyright')">🛡️ Shield</div>
+    <div class="nav-tab" onclick="showPage('settings')">⚙️ Settings</div>
+  </nav>
+</header>
+
+<!-- ─── Main Content ───────────────────────────────────────────────────── -->
+<main class="main">
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PAGE: DASHBOARD                                                      -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <section class="page active" id="page-dashboard">
+
+    <!-- Channel Tabs -->
+    <div class="ch-tabs" dir="ltr">
+      <div class="ch-tab active" onclick="selectChannel(1)">CH 1</div>
+      <div class="ch-tab" onclick="selectChannel(2)">CH 2</div>
+      <div class="ch-tab" onclick="selectChannel(3)">CH 3</div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">🔴 Status</div>
+        <div id="statStatus" class="stat-value" style="font-size:1rem;padding:6px 0;color:var(--green);">LIVE</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">⏱ Remaining</div>
+        <div id="statRemaining" class="stat-value">--:--</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">📋 Schedule</div>
+        <div id="statSchedule" class="stat-value">0</div>
+        <div class="stat-label" style="margin-top:2px;">shows loaded</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">🔄 Last Sync</div>
+        <div id="statSync" class="stat-value" style="font-size:0.9rem;">Never</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">⚡ Fallback</div>
+        <div id="statFallback" class="stat-value" style="font-size:1rem;color:var(--green);">OFF</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">📡 Stream</div>
+        <div id="statHealth" class="stat-value" style="font-size:1rem;">--</div>
+      </div>
+    </div>
+
+    <!-- Now Playing -->
+    <div class="now-playing mb-6">
+      <div class="np-label"><div class="dot"></div> NOW BROADCASTING — CH <span id="npChannel">1</span></div>
+      <div id="npTitle" class="np-title">لوڈ ہو رہا ہے...</div>
+      <div id="npUrl" class="np-url">—</div>
+      <div class="progress-bar mt-4">
+        <div id="npProgress" class="progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Grid: Upcoming + Log -->
+    <div class="grid-2">
+      <!-- Upcoming Shows -->
+      <div class="card">
+        <div class="card-title">📋 آنے والے پروگرام</div>
+        <div id="upcomingList">
+          <p style="color:var(--text-dim);font-size:0.85rem;">لوڈ ہو رہا ہے...</p>
+        </div>
+      </div>
+
+      <!-- Live Log Console -->
+      <div class="card">
+        <div class="card-title" style="justify-content:space-between;">
+          <span>🖥️ SYSTEM LOG</span>
+          <button class="btn btn-ghost btn-sm" onclick="clearLog()">Clear</button>
+        </div>
+        <div class="log-console" id="logConsole">
+          <p class="log-line log-system">[SYS] MI Live TV Control Room v2.0 initialized</p>
+          <p class="log-line log-system">[SYS] Connecting to Firebase RTDB...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Emergency Override -->
+    <div class="card mt-4">
+      <div class="card-title">🚨 Emergency Override</div>
+      <div class="grid-2" dir="ltr">
+        <div>
+          <label>Override Stream URL</label>
+          <input type="url" id="overrideUrl" placeholder="https://..." />
+        </div>
+        <div>
+          <label>Override Title (Urdu)</label>
+          <input type="text" class="urdu-input" id="overrideTitle" placeholder="ہنگامی نشریات" />
+        </div>
+      </div>
+      <div class="flex gap-3 mt-4" dir="ltr">
+        <button class="btn btn-red" onclick="activateOverride()">🚨 Activate Override</button>
+        <button class="btn btn-ghost" onclick="deactivateOverride()">✕ Deactivate</button>
+        <div id="overrideStatus" style="font-size:0.8rem;color:var(--text-dim);align-self:center;"></div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PAGE: FRAME EDITOR                                                   -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <section class="page" id="page-frame-editor">
+    <div class="grid-2">
+      <!-- Left: Canvas -->
+      <div>
+        <div class="card-title" style="margin-bottom:12px;">🎨 Frame Editor (Drag & Drop)</div>
+        <div class="frame-editor" id="frameCanvas"
+             ondrop="dropLayer(event)" ondragover="event.preventDefault()">
+
+          <!-- Default frame content -->
+          <div id="layer-clock" class="frame-layer" style="top:10px;left:10px;z-index:10;"
+               draggable="true" ondragstart="dragLayer(event,'layer-clock')">
+            <div class="clock-display" id="frameClockDisplay" style="font-size:1.2rem;padding:8px;">00:00:00</div>
+          </div>
+
+          <div id="layer-logo" class="frame-layer" style="top:10px;right:10px;z-index:10;"
+               draggable="true" ondragstart="dragLayer(event,'layer-logo')">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--gold);
+                        text-shadow:0 0 10px rgba(212,175,55,0.6);padding:8px;
+                        background:rgba(0,0,0,0.5);border-radius:4px;
+                        animation:logo-pulse 3s ease-in-out infinite;">
+              📺 MI TV
+            </div>
+          </div>
+
+          <div id="layer-patti" class="frame-layer" style="bottom:0;left:0;right:0;z-index:10;"
+               draggable="true" ondragstart="dragLayer(event,'layer-patti')">
+            <div style="background:#0a0a1a;border-top:2px solid var(--gold);height:42px;
+                        display:flex;align-items:center;overflow:hidden;">
+              <div style="background:var(--gold);color:#000;font-family:'Bebas Neue';
+                          font-size:0.7rem;letter-spacing:2px;padding:0 10px;height:100%;
+                          display:flex;align-items:center;flex-shrink:0;">MI NEWS</div>
+              <div style="font-family:var(--urdu-font);font-size:1rem;color:#fff;
+                          white-space:nowrap;animation:ticker-scroll 15s linear infinite;
+                          padding-right:20px;direction:rtl;" id="frameTickerText">
+                خوش آمدید MI لائیو ٹی وی پر 📺 تازہ ترین خبریں اور پروگرام
+              </div>
+            </div>
+          </div>
+
+          <!-- Noise overlay in preview -->
+          <div class="noise-layer" id="frameNoiseLayer" style="display:none;"></div>
+        </div>
+
+        <!-- Layer Controls -->
+        <div class="flex gap-2 mt-4" dir="ltr" style="flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" onclick="addLayer('text')">+ Text</button>
+          <button class="btn btn-ghost btn-sm" onclick="addLayer('logo')">+ Logo</button>
+          <button class="btn btn-ghost btn-sm" onclick="addLayer('clock')">+ Clock</button>
+          <button class="btn btn-ghost btn-sm" onclick="addLayer('ticker')">+ Ticker</button>
+          <button class="btn btn-gold btn-sm" onclick="saveFrameLayout()">💾 Save Layout</button>
+        </div>
+      </div>
+
+      <!-- Right: Properties Panel -->
+      <div>
+        <div class="card-title" style="margin-bottom:12px;">🔧 Layer Properties</div>
+
+        <!-- Logo Section -->
+        <div class="card mb-4">
+          <div class="card-title" style="font-size:0.9rem;">📺 Channel Logo</div>
+          <div dir="ltr">
+            <label>Logo URL (PNG/WebP)</label>
+            <input type="url" id="logoUrl" placeholder="https://..." />
+            <div class="flex gap-2 mt-2">
+              <label class="toggle" style="margin:0;">
+                <input type="checkbox" id="logoPulse" checked onchange="updateLogoAnimation()"/>
+                <span class="toggle-slider"></span>
+              </label>
+              <span style="font-size:0.8rem;color:var(--text-dim);">Pulse Animation</span>
+              <label class="toggle" style="margin:0;margin-left:12px;">
+                <input type="checkbox" id="logoSpin" onchange="updateLogoAnimation()"/>
+                <span class="toggle-slider"></span>
+              </label>
+              <span style="font-size:0.8rem;color:var(--text-dim);">Spin</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Clock Section -->
+        <div class="card mb-4">
+          <div class="card-title" style="font-size:0.9rem;">🕐 Broadcast Clock</div>
+          <div dir="ltr">
+            <label>Format</label>
+            <select id="clockFormat">
+              <option value="24h">24-Hour (HH:MM:SS)</option>
+              <option value="12h">12-Hour (hh:mm:ss AM/PM)</option>
+              <option value="short">Short (HH:MM)</option>
+            </select>
+            <div class="flex gap-2 mt-2">
+              <label class="toggle" style="margin:0;">
+                <input type="checkbox" id="showDate" checked/>
+                <span class="toggle-slider"></span>
+              </label>
+              <span style="font-size:0.8rem;color:var(--text-dim);">Show Date</span>
+              <label class="toggle" style="margin:0;margin-left:12px;">
+                <input type="checkbox" id="showPKT" checked/>
+                <span class="toggle-slider"></span>
+              </label>
+              <span style="font-size:0.8rem;color:var(--text-dim);">PKT Label</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ticker Color Section -->
+        <div class="card mb-4">
+          <div class="card-title" style="font-size:0.9rem;">📰 Ticker Style</div>
+          <div dir="ltr">
+            <div class="grid-2 mb-2">
+              <div>
+                <label>Background</label>
+                <input type="color" id="tickerBg" value="#0a0a1a"
+                       style="width:100%;height:40px;padding:4px;border-radius:4px;cursor:pointer;" />
+              </div>
+              <div>
+                <label>Text Color</label>
+                <input type="color" id="tickerColor" value="#ffffff"
+                       style="width:100%;height:40px;padding:4px;border-radius:4px;cursor:pointer;" />
+              </div>
+            </div>
+            <div class="grid-2">
+              <div>
+                <label>Label BG</label>
+                <input type="color" id="tickerLabelBg" value="#d4af37"
+                       style="width:100%;height:40px;padding:4px;border-radius:4px;cursor:pointer;" />
+              </div>
+              <div>
+                <label>Speed (seconds)</label>
+                <input type="number" id="tickerSpeed" value="40" min="10" max="120" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Save -->
+        <button class="btn btn-gold w-full" onclick="saveFrameLayout()">
+          💾 Save Frame Layout to Firebase
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PAGE: SCHEDULE                                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <section class="page" id="page-schedule">
+
+    <!-- Channel Tabs -->
+    <div class="ch-tabs" dir="ltr">
+      <div class="ch-tab active" onclick="selectSchedChannel(1)">CH 1</div>
+      <div class="ch-tab" onclick="selectSchedChannel(2)">CH 2</div>
+      <div class="ch-tab" onclick="selectSchedChannel(3)">CH 3</div>
+    </div>
+
+    <!-- Add Show Form -->
+    <div class="card mb-6">
+      <div class="card-title">➕ Add Show to Schedule</div>
+      <div class="grid-3 mb-4" dir="ltr">
+        <div>
+          <label>Title (Urdu/English)</label>
+          <input type="text" class="urdu-input" id="showTitle" placeholder="پروگرام کا نام" />
+        </div>
+        <div>
+          <label>Stream URL</label>
+          <input type="url" id="showUrl" placeholder="https://..." />
+        </div>
+        <div>
+          <label>Duration (seconds)</label>
+          <input type="number" id="showDuration" value="3600" min="30" />
+        </div>
+      </div>
+      <div class="grid-3 mb-4" dir="ltr">
+        <div>
+          <label>Start Time (PKT)</label>
+          <input type="time" id="showTime" value="08:00" />
+        </div>
+        <div>
+          <label>Category</label>
+          <select id="showCategory">
+            <option value="news">📰 News</option>
+            <option value="religious">🕌 Religious</option>
+            <option value="documentary">🎬 Documentary</option>
+            <option value="show">📺 Show</option>
+            <option value="nasheed">🎵 Nasheed</option>
+            <option value="azan">🕌 Azan</option>
+            <option value="film">🎬 Film</option>
+            <option value="loop">🔄 Loop</option>
+          </select>
+        </div>
+        <div>
+          <label>Repeat</label>
+          <select id="showRepeat">
+            <option value="daily">Daily (All 30 days)</option>
+            <option value="once">Once (Today only)</option>
+            <option value="weekdays">Weekdays</option>
+            <option value="weekends">Weekends</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex gap-3" dir="ltr">
+        <button class="btn btn-gold" onclick="addShow()">➕ Add Show</button>
+        <button class="btn btn-ghost" onclick="generateDefaultSchedule()">🔄 Generate 30-Day Default</button>
+        <button class="btn btn-ghost" onclick="loadScheduleFromFirebase()">☁️ Reload from Firebase</button>
+        <button class="btn btn-red" onclick="clearSchedule()">🗑 Clear All</button>
+      </div>
+    </div>
+
+    <!-- Schedule Table -->
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between;">
+        <span>📅 30-Day Schedule — <span id="schedChannelLabel">CH 1</span></span>
+        <span style="font-size:0.8rem;color:var(--text-dim);" id="schedCount">0 shows</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="schedule-table" id="schedTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Title</th>
+              <th>Start (PKT)</th>
+              <th>Duration</th>
+              <th>Category</th>
+              <th>Stream URL</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="schedBody">
+            <tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:30px;">No shows loaded</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PAGE: TICKER / PATTI EDITOR                                          -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <section class="page" id="page-ticker">
+    <div class="grid-2">
+      <!-- Left: Ticker Editor -->
+      <div>
+        <div class="card mb-6">
+          <div class="card-title">📰 اردو نیوز ٹکر (پٹی) ایڈیٹر</div>
+
+          <div class="mb-4" dir="ltr">
+            <label>Label Text (English)</label>
+            <input type="text" id="tickerLabelText" value="MI NEWS" maxlength="12" />
+          </div>
+
+          <div class="mb-4">
+            <label style="direction:rtl;display:block;">پٹی کا متن (اردو / ایموجی سپورٹ ✅)</label>
+            <textarea class="urdu-input" id="tickerContent" rows="4"
+              placeholder="یہاں خبریں اور اعلانات لکھیں... 📺 ایموجی بھی استعمال کر سکتے ہیں 🌙"
+              style="resize:vertical;"></textarea>
+          </div>
+
+          <div class="mb-4" dir="ltr">
+            <label>Ticker Mode</label>
+            <select id="tickerMode">
+              <option value="news">📰 News Ticker</option>
+              <option value="breaking">🚨 Breaking News</option>
+              <option value="prayer">🕌 Prayer Times</option>
+              <option value="custom">✏️ Custom</option>
+            </select>
+          </div>
+
+          <!-- Saved Headlines -->
+          <div class="mb-4">
+            <label style="display:block;margin-bottom:8px;">📌 محفوظ شدہ سرخیاں</label>
+            <div id="savedHeadlines" style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;">
+              <!-- Populated dynamically -->
+            </div>
+            <button class="btn btn-ghost btn-sm mt-4" style="direction:ltr;" onclick="saveHeadline()">
+              + Save Current as Headline
+            </button>
+          </div>
+
+          <div class="flex gap-3" dir="ltr">
+            <button class="btn btn-gold" onclick="pushTickerToFirebase()">📡 Push to Live</button>
+            <button class="btn btn-ghost" onclick="previewTicker()">👁 Preview</button>
+            <button class="btn btn-red" onclick="clearTicker()">✕ Clear</button>
+          </div>
+        </div>
+
+        <!-- Prayer Times Auto-Ticker -->
+        <div class="card">
+          <div class="card-title">🕌 نماز کے اوقات (خودکار)</div>
+          <div class="grid-2 mb-4" dir="ltr">
+            <div>
+              <label>City</label>
+              <input type="text" id="prayerCity" value="Kasur" />
+            </div>
+            <div>
+              <label>Country</label>
+              <input type="text" id="prayerCountry" value="Pakistan" />
+            </div>
+          </div>
+          <button class="btn btn-green btn-sm" onclick="fetchPrayerTimes()">🕌 Fetch & Add to Ticker</button>
+          <div id="prayerTimesResult" class="mt-4" style="font-family:var(--urdu-font);direction:rtl;font-size:1rem;color:var(--gold);"></div>
+        </div>
+      </div>
+
+      <!-- Right: Live Preview -->
+      <div>
+        <div class="card-title" style="margin-bottom:12px;">👁 لائیو پریویو</div>
+
+        <!-- Full ticker preview -->
+        <div style="background:#000;border-radius:8px;overflow:hidden;margin-bottom:16px;">
+          <!-- Fake TV frame -->
+          <div style="background:#111;padding:16px;aspect-ratio:16/9;position:relative;
+                      display:flex;flex-direction:column;justify-content:flex-end;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--gold);
+                        text-align:center;position:absolute;top:10px;left:50%;transform:translateX(-50%);
+                        letter-spacing:4px;text-shadow:0 0 15px rgba(212,175,55,0.5);">
+              📺 MI LIVE TV
+            </div>
+            <!-- Ticker at bottom -->
+            <div id="tickerPreviewFull" class="ticker-preview">
+              <div class="ticker-label-prev" id="previewLabelEl">MI NEWS</div>
+              <div class="ticker-scroll-prev">
+                <div class="ticker-inner-prev" id="previewTextEl">
+                  خوش آمدید MI لائیو ٹی وی پر — تازہ ترین خبریں اور پروگرام 📺
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Breaking News Preview -->
+        <div class="card">
+          <div class="card-title" style="font-size:0.9rem;">🚨 Breaking News Preview</div>
+          <div id="breakingPreview" style="
+            background:linear-gradient(135deg,#cc0000,#880000);
+            color:#fff;padding:12px 16px;border-radius:6px;display:flex;align-items:center;gap:12px;">
+            <span style="background:#fff;color:#cc0000;font-weight:900;font-size:0.65rem;
+                         padding:3px 8px;border-radius:2px;letter-spacing:2px;flex-shrink:0;
+                         animation:blink 1s step-end infinite;">BREAKING</span>
+            <span style="font-family:var(--urdu-font);font-size:1.1rem;direction:rtl;"
+                  id="breakingTextPrev">ابھی ابھی — تازہ ترین خبر</span>
+          </div>
+        </div>
+
+        <!-- Live Ticker Display -->
+        <div class="card mt-4">
+          <div class="card-title" style="font-size:0.9rem;">📡 Firebase میں محفوظ پٹی</div>
+          <div id="firebaseTickerCurrent" style="font-family:var(--urdu-font);font-size:1.1rem;
+               direction:rtl;color:var(--gold);padding:8px;">لوڈ ہو رہا ہے...</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PAGE: COPYRIGHT SHIELD                                               -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <section class="page" id="page-copyright">
+    <div class="grid-2">
+      <div>
+        <div class="card mb-6">
+          <div class="card-title">🛡️ Copyright Bypass Suite</div>
+          <p style="color:var(--text-dim);font-size:0.85rem;margin-bottom:20px;line-height:1.8;" dir="ltr">
+            Visual modulation tools to reduce automated copyright detection.
+            These work by adding imperceptible variations to the video output
+            that confuse fingerprinting algorithms without affecting viewer experience.
+          </p>
+
+          <!-- Visual Noise -->
+          <div class="toggle-wrap mb-6" dir="ltr">
+            <label class="toggle" style="margin:0;">
+              <input type="checkbox" id="noiseToggle" onchange="toggleNoise(this.checked)"/>
+              <span class="toggle-slider"></span>
+            </label>
+            <div>
+              <div style="font-weight:600;font-size:0.9rem;">🌫️ Visual Noise Overlay</div>
+              <div style="color:var(--text-dim);font-size:0.75rem;">Adds 1% transparent noise to video frame</div>
+            </div>
+          </div>
+
+          <!-- Hue Shift -->
+          <div class="toggle-wrap mb-6" dir="ltr">
+            <label class="toggle" style="margin:0;">
+              <input type="checkbox" id="hueToggle" onchange="toggleHueShift(this.checked)"/>
+              <span class="toggle-slider"></span>
+            </label>
+            <div>
+              <div style="font-weight:600;font-size:0.9rem;">🎨 Micro Hue Shift</div>
+              <div style="color:var(--text-dim);font-size:0.75rem;">Applies 0.5° hue rotation per frame cycle</div>
+            </div>
+          </div>
+
+          <!-- Crop Jitter -->
+          <div class="toggle-wrap mb-6" dir="ltr">
+            <label class="toggle" style="margin:0;">
+              <input type="checkbox" id="cropToggle"/>
+            </label>
+            <span class="toggle-slider" style="display:none;"></span>
+            <div>
+              <div style="font-weight:600;font-size:0.9rem;">🔲 Subtle Crop Jitter</div>
+              <div style="color:var(--text-dim);font-size:0.75rem;">Randomly shifts frame crop by 1-2px</div>
+            </div>
+          </div>
+
+          <!-- Speed Variance -->
+          <div dir="ltr" class="mb-4">
+            <label>Playback Speed Variance (±%)</label>
+            <input type="range" id="speedVariance" min="0" max="2" step="0.1" value="0.5"
+                   style="width:100%;accent-color:var(--gold);" oninput="updateSpeedLabel(this.value)" />
+            <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text-dim);margin-top:4px;">
+              <span>0% (disabled)</span>
+              <span id="speedLabel">±0.5%</span>
+              <span>±2%</span>
+            </div>
+          </div>
+
+          <button class="btn btn-gold w-full" onclick="saveShieldSettings()">
+            💾 Save Shield Settings
+          </button>
+        </div>
+
+        <!-- Audio Modulation -->
+        <div class="card">
+          <div class="card-title">🔊 Audio Modulation</div>
+          <p style="color:var(--text-dim);font-size:0.82rem;margin-bottom:16px;line-height:1.8;" dir="ltr">
+            Subtle audio pitch shifting (±0.5%) to evade audio fingerprinting.
+            Applied at the stream output level.
+          </p>
+          <div dir="ltr" class="mb-4">
+            <label>Pitch Shift (semitones)</label>
+            <input type="range" id="pitchShift" min="-0.5" max="0.5" step="0.05" value="0.1"
+                   style="width:100%;accent-color:var(--gold);" oninput="updatePitchLabel(this.value)" />
+            <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text-dim);margin-top:4px;">
+              <span>-0.5st</span>
+              <span id="pitchLabel">+0.1st</span>
+              <span>+0.5st</span>
+            </div>
+          </div>
+          <div class="toggle-wrap" dir="ltr">
+            <label class="toggle" style="margin:0;">
+              <input type="checkbox" id="audioModToggle" checked/>
+              <span class="toggle-slider"></span>
+            </label>
+            <span style="font-size:0.85rem;">Enable audio modulation on output</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Status Monitor -->
+      <div>
+        <div class="card mb-6">
+          <div class="card-title">📊 Shield Status</div>
+          <div id="shieldStatusList" style="display:flex;flex-direction:column;gap:12px;">
+            <div class="flex items-center gap-3" dir="ltr">
+              <div style="width:10px;height:10px;border-radius:50%;background:#666;" id="shieldDot1"></div>
+              <span style="flex:1;font-size:0.85rem;">Visual Noise Overlay</span>
+              <span style="font-size:0.75rem;color:var(--text-dim);" id="shieldLabel1">OFF</span>
+            </div>
+            <div class="flex items-center gap-3" dir="ltr">
+              <div style="width:10px;height:10px;border-radius:50%;background:#666;" id="shieldDot2"></div>
+              <span style="flex:1;font-size:0.85rem;">Micro Hue Shift</span>
+              <span style="font-size:0.75px;color:var(--text-dim);" id="shieldLabel2">OFF</span>
+            </div>
+            <div class="flex items-center gap-3" dir="ltr">
+              <div style="width:10px;height:10px;border-radius:50%;background:var(--green);" id="shieldDot3"></div>
+              <span style="flex:1;font-size:0.85rem;">Audio Pitch Shift</span>
+              <span style="font-size:0.75rem;color:var(--green);" id="shieldLabel3">+0.1st</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">⚡ Quick Presets</div>
+          <div style="display:flex;flex-direction:column;gap:10px;" dir="ltr">
+            <button class="btn btn-ghost w-full" onclick="applyPreset('light')">
+              🟢 Light Mode — Minimal changes (recommended)
+            </button>
+            <button class="btn btn-ghost w-full" onclick="applyPreset('medium')">
+              🟡 Medium Mode — Balanced protection
+            </button>
+            <button class="btn btn-ghost w-full" onclick="applyPreset('strong')">
+              🔴 Strong Mode — Maximum modulation
+            </button>
+            <button class="btn btn-ghost w-full" onclick="applyPreset('off')">
+              ⚪ Disable All — Clean output
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- PAGE: SETTINGS                                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <section class="page" id="page-settings">
+    <div class="grid-2">
+      <div>
+        <!-- Stream URLs by Category -->
+        <div class="card mb-6">
+          <div class="card-title">📡 Stream URLs by Category</div>
+          <p style="color:var(--text-dim);font-size:0.82rem;margin-bottom:16px;" dir="ltr">
+            Set default stream URLs for each content category. These are used when the playout engine auto-generates the 30-day schedule.
+          </p>
+          <div dir="ltr" style="display:flex;flex-direction:column;gap:12px;">
+            <div>
+              <label>📰 News Stream URL</label>
+              <input type="url" id="urlNews" placeholder="https://..." />
+            </div>
+            <div>
+              <label>🕌 Religious / Quran URL</label>
+              <input type="url" id="urlReligious" placeholder="https://..." />
+            </div>
+            <div>
+              <label>🎬 Documentary URL</label>
+              <input type="url" id="urlDocumentary" placeholder="https://..." />
+            </div>
+            <div>
+              <label>📺 Shows URL</label>
+              <input type="url" id="urlShow" placeholder="https://..." />
+            </div>
+            <div>
+              <label>🎵 Nasheed URL</label>
+              <input type="url" id="urlNasheed" placeholder="https://..." />
+            </div>
+            <div>
+              <label>🔄 Filler / Loop URL</label>
+              <input type="url" id="urlFiller"
+                value="https://firebasestorage.googleapis.com/v0/b/ramadan-2385b.firebasestorage.app/o/filler_loop.m3u8?alt=media" />
+            </div>
+            <button class="btn btn-gold" onclick="saveStreamUrls()">💾 Save URLs to Firebase</button>
+          </div>
+        </div>
+
+        <!-- Vercel Settings -->
+        <div class="card">
+          <div class="card-title">⚡ Vercel / API Settings</div>
+          <div dir="ltr" style="display:flex;flex-direction:column;gap:12px;">
+            <div>
+              <label>Stream API Base URL</label>
+              <input type="url" id="vercelBase" value="https://mitv-tan.vercel.app/api/stream" />
+            </div>
+            <div>
+              <label>Permanent Link (M3U8) CH1</label>
+              <div class="flex gap-2">
+                <input type="text" id="permLink1" readonly
+                  value="https://mitv-tan.vercel.app/api/stream?ch=1" />
+                <button class="btn btn-ghost btn-sm" onclick="copyLink('permLink1')">Copy</button>
+              </div>
+            </div>
+            <div>
+              <label>Permanent Link (M3U8) CH2</label>
+              <div class="flex gap-2">
+                <input type="text" id="permLink2" readonly
+                  value="https://mitv-tan.vercel.app/api/stream?ch=2" />
+                <button class="btn btn-ghost btn-sm" onclick="copyLink('permLink2')">Copy</button>
+              </div>
+            </div>
+            <div>
+              <label>Permanent Link (M3U8) CH3</label>
+              <div class="flex gap-2">
+                <input type="text" id="permLink3" readonly
+                  value="https://mitv-tan.vercel.app/api/stream?ch=3" />
+                <button class="btn btn-ghost btn-sm" onclick="copyLink('permLink3')">Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <!-- System Info -->
+        <div class="card mb-6">
+          <div class="card-title">🖥️ System Information</div>
+          <div dir="ltr" style="display:flex;flex-direction:column;gap:8px;font-size:0.85rem;">
+            <div class="flex" style="justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+              <span style="color:var(--text-dim);">Firebase Project</span>
+              <span style="font-family:monospace;color:var(--gold);">ramadan-2385b</span>
+            </div>
+            <div class="flex" style="justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+              <span style="color:var(--text-dim);">Playout Engine</span>
+              <span style="color:var(--green);">v2.0.0</span>
+            </div>
+            <div class="flex" style="justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+              <span style="color:var(--text-dim);">Last Playout Run</span>
+              <span id="sysLastRun">—</span>
+            </div>
+            <div class="flex" style="justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+              <span style="color:var(--text-dim);">Channels Active</span>
+              <span id="sysChannels">3</span>
+            </div>
+            <div class="flex" style="justify-content:space-between;padding:8px 0;">
+              <span style="color:var(--text-dim);">Next GH Actions Run</span>
+              <span id="sysNextRun" style="color:var(--gold);">~10 min</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Manual Trigger -->
+        <div class="card mb-6">
+          <div class="card-title">🔄 Manual Controls</div>
+          <div dir="ltr" style="display:flex;flex-direction:column;gap:10px;">
+            <button class="btn btn-gold w-full" onclick="manualSync()">🔄 Sync All Channels Now</button>
+            <button class="btn btn-ghost w-full" onclick="generateDefaultSchedule()">📅 Generate Default 30-Day Schedule</button>
+            <button class="btn btn-ghost w-full" onclick="warmVercelCache()">🔥 Warm Vercel Cache</button>
+            <button class="btn btn-red w-full" onclick="factoryReset()">⚠️ Factory Reset (Clear All)</button>
+          </div>
+        </div>
+
+        <!-- M3U Playlist Export -->
+        <div class="card">
+          <div class="card-title">📋 M3U Playlist Export</div>
+          <p style="color:var(--text-dim);font-size:0.82rem;margin-bottom:12px;" dir="ltr">
+            Generate a permanent M3U playlist file for IPTV apps.
+          </p>
+          <div dir="ltr">
+            <textarea id="m3uOutput" rows="6" readonly
+              style="font-family:monospace;font-size:0.75rem;"
+              placeholder="Click generate to create M3U..."></textarea>
+            <div class="flex gap-2 mt-2">
+              <button class="btn btn-gold btn-sm" onclick="generateM3U()">Generate M3U</button>
+              <button class="btn btn-ghost btn-sm" onclick="copyM3U()">Copy</button>
+              <button class="btn btn-ghost btn-sm" onclick="downloadM3U()">⬇ Download</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ─── Scripts ─────────────────────────────────────────────────────────── -->
+<script type="module">
+// ═══════════════════════════════════════════════════════════════════════════
+// MI LIVE TV CONTROL ROOM — Main JS (Firebase + UI Logic)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const { initializeApp, getDatabase, ref, onValue, set, get, push, update, remove } = window._fb;
+
+// ─── Firebase Init ──────────────────────────────────────────────────────────
+const FB_CONFIG = {
+  apiKey:            "AIzaSyBbnU8DkthpYQMHOLLyj6M0cc05qXfjMcw",
+  authDomain:        "ramadan-2385b.firebaseapp.com",
+  databaseURL:       "https://ramadan-2385b-default-rtdb.firebaseio.com",
+  projectId:         "ramadan-2385b",
+  storageBucket:     "ramadan-2385b.firebasestorage.app",
+  messagingSenderId: "882828936310",
+  appId:             "1:882828936310:web:7f97b921031fe130fe4b57",
+};
+
+const app = initializeApp(FB_CONFIG);
+const db  = getDatabase(app);
+
+// ─── State ──────────────────────────────────────────────────────────────────
+window.state = {
+  activeChannel:     1,
+  schedChannel:      1,
+  schedules:         { 1: [], 2: [], 3: [] },
+  nowPlaying:        { 1: {}, 2: {}, 3: {} },
+  noiseEnabled:      false,
+  hueEnabled:        false,
+  dragLayerId:       null,
+  savedHeadlines:    [],
+  hueInterval:       null,
+};
+
+const FILLER_LOOP = "https://firebasestorage.googleapis.com/v0/b/ramadan-2385b.firebasestorage.app/o/filler_loop.m3u8?alt=media";
+const VERCEL_BASE = "https://mitv-tan.vercel.app/api/stream";
+
+// ─── Expose helpers to global scope for inline handlers ──────────────────────
+window.showPage         = showPage;
+window.selectChannel    = selectChannel;
+window.selectSchedChannel = selectSchedChannel;
+window.addShow          = addShow;
+window.generateDefaultSchedule = generateDefaultSchedule;
+window.loadScheduleFromFirebase = loadScheduleFromFirebase;
+window.clearSchedule    = clearSchedule;
+window.removeShow       = removeShow;
+window.activateOverride = activateOverride;
+window.deactivateOverride = deactivateOverride;
+window.pushTickerToFirebase = pushTickerToFirebase;
+window.previewTicker    = previewTicker;
+window.clearTicker      = clearTicker;
+window.saveHeadline     = saveHeadline;
+window.fetchPrayerTimes = fetchPrayerTimes;
+window.toggleNoise      = toggleNoise;
+window.toggleHueShift   = toggleHueShift;
+window.updateSpeedLabel = updateSpeedLabel;
+window.updatePitchLabel = updatePitchLabel;
+window.saveShieldSettings = saveShieldSettings;
+window.applyPreset      = applyPreset;
+window.saveStreamUrls   = saveStreamUrls;
+window.copyLink         = copyLink;
+window.manualSync       = manualSync;
+window.warmVercelCache  = warmVercelCache;
+window.generateM3U      = generateM3U;
+window.copyM3U          = copyM3U;
+window.downloadM3U      = downloadM3U;
+window.factoryReset     = factoryReset;
+window.clearLog         = clearLog;
+window.saveFrameLayout  = saveFrameLayout;
+window.addLayer         = addLayer;
+window.dragLayer        = dragLayer;
+window.dropLayer        = dropLayer;
+window.updateLogoAnimation = updateLogoAnimation;
+
+// ─── Page Navigation ─────────────────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`page-${id}`).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    if (t.textContent.toLowerCase().includes(
+      id === 'frame-editor' ? 'frame' :
+      id === 'copyright'    ? 'shield' : id
+    )) t.classList.add('active');
+  });
+}
+
+// ─── Channel Selection ────────────────────────────────────────────────────────
+function selectChannel(ch) {
+  window.state.activeChannel = ch;
+  document.querySelectorAll('#page-dashboard .ch-tab').forEach((t,i) => {
+    t.classList.toggle('active', i + 1 === ch);
+  });
+  document.getElementById('npChannel').textContent = ch;
+  refreshDashboard();
+}
+
+function selectSchedChannel(ch) {
+  window.state.schedChannel = ch;
+  document.querySelectorAll('#page-schedule .ch-tab').forEach((t,i) => {
+    t.classList.toggle('active', i + 1 === ch);
+  });
+  document.getElementById('schedChannelLabel').textContent = `CH ${ch}`;
+  renderScheduleTable();
+}
+
+// ─── Log Console ──────────────────────────────────────────────────────────────
+function log(msg, type = 'info') {
+  const console = document.getElementById('logConsole');
+  const line = document.createElement('p');
+  line.className = `log-line log-${type}`;
+  const now = new Date().toLocaleTimeString('en-GB');
+  line.textContent = `[${now}] ${msg}`;
+  console.appendChild(line);
+  console.scrollTop = console.scrollHeight;
+}
+
+function clearLog() {
+  document.getElementById('logConsole').innerHTML = '';
+  log('Log cleared', 'system');
+}
+
+// ─── Broadcast Clock ──────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  // Pakistan Standard Time = UTC+5
+  const pk  = new Date(now.getTime() + 5 * 3600000 - now.getTimezoneOffset() * 60000);
+
+  const hh = String(pk.getHours()).padStart(2,'0');
+  const mm = String(pk.getMinutes()).padStart(2,'0');
+  const ss = String(pk.getSeconds()).padStart(2,'0');
+  const timeStr = `${hh}:${mm}:${ss}`;
+
+  const days  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months= ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dateStr = `${days[pk.getDay()]} ${pk.getDate()} ${months[pk.getMonth()]} ${pk.getFullYear()} — PKT`;
+
+  const clockEl = document.getElementById('liveClockHeader');
+  const dateEl  = document.getElementById('liveDateHeader');
+  const frameEl = document.getElementById('frameClockDisplay');
+
+  if (clockEl) clockEl.textContent = timeStr;
+  if (dateEl)  dateEl.textContent  = dateStr;
+  if (frameEl) frameEl.textContent = timeStr;
+}
+
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── Firebase: Now Playing Listener ──────────────────────────────────────────
+function listenNowPlaying() {
+  onValue(ref(db, 'mitv/now_playing'), (snap) => {
+    if (!snap.exists()) { log('No now_playing data in Firebase', 'warn'); return; }
+    const data = snap.val();
+    for (const ch of [1,2,3]) {
+      if (data[`ch${ch}`]) {
+        window.state.nowPlaying[ch] = data[`ch${ch}`];
+      }
+    }
+    refreshDashboard();
+    log(`Now playing synced from Firebase`, 'info');
+  });
+}
+
+function refreshDashboard() {
+  const ch = window.state.activeChannel;
+  const np = window.state.nowPlaying[ch] || {};
+
+  // Title
+  const titleEl = document.getElementById('npTitle');
+  if (titleEl) titleEl.textContent = np.title || 'کوئی نشریات نہیں';
+
+  // URL
+  const urlEl = document.getElementById('npUrl');
+  if (urlEl) urlEl.textContent = np.stream_url || '—';
+
+  // Stats
+  setText('statStatus',    np.stream_url ? (np.fallback_active ? 'FALLBACK' : 'LIVE') : 'OFFLINE');
+  setText('statFallback',  np.fallback_active ? 'ACTIVE' : 'OFF');
+  setText('statHealth',    np.stream_healthy === false ? 'DOWN' : (np.stream_url ? 'UP' : '--'));
+  setText('statSchedule',  np.schedule_total || 0);
+
+  // Sync time
+  if (np.updated_at_iso) {
+    const d = new Date(np.updated_at_iso);
+    setText('statSync', d.toLocaleTimeString('en-GB'));
+  }
+
+  // Color codes
+  const statusEl = document.getElementById('statStatus');
+  if (statusEl) {
+    statusEl.style.color = np.fallback_active ? 'var(--red)' : 'var(--green)';
+  }
+
+  // Progress bar
+  if (np.offset_seconds !== undefined && np.remaining_seconds !== undefined) {
+    const total   = (np.offset_seconds || 0) + (np.remaining_seconds || 0);
+    const pct     = total > 0 ? ((np.offset_seconds / total) * 100).toFixed(1) : 0;
+    const progEl  = document.getElementById('npProgress');
+    if (progEl) progEl.style.width = `${pct}%`;
+
+    // Remaining time
+    const rem  = np.remaining_seconds || 0;
+    const rMM  = String(Math.floor(rem / 60)).padStart(2,'0');
+    const rSS  = String(rem % 60).padStart(2,'0');
+    setText('statRemaining', `${rMM}:${rSS}`);
+  }
+
+  // Upcoming
+  renderUpcoming(np.upcoming || []);
+}
+
+function renderUpcoming(list) {
+  const el = document.getElementById('upcomingList');
+  if (!el) return;
+  if (!list || list.length === 0) {
+    el.innerHTML = '<p style="color:var(--text-dim);font-size:0.85rem;">کوئی پروگرام نہیں ملا</p>';
+    return;
+  }
+  el.innerHTML = list.map((s, i) => `
+    <div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;">
+      <span style="font-family:'Orbitron',monospace;font-size:0.65rem;color:var(--gold);min-width:20px;">${i+1}</span>
+      <div style="flex:1;">
+        <div style="font-family:var(--urdu-font);font-size:1rem;direction:rtl;margin-bottom:2px;">${s.title || 'نامعلوم'}</div>
+        <div style="font-size:0.72rem;color:var(--text-dim);">${formatDuration(s.duration || 0)} ${s.is_filler ? '📺 [Filler]' : ''}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── Firebase: Schedule ────────────────────────────────────────────────────────
+function listenSchedules() {
+  for (const ch of [1,2,3]) {
+    onValue(ref(db, `mitv/schedules/ch${ch}`), (snap) => {
+      if (snap.exists()) {
+        const data = snap.val();
+        window.state.schedules[ch] = Array.isArray(data) ? data : Object.values(data);
+        if (ch === window.state.schedChannel) renderScheduleTable();
+        log(`Schedule for CH${ch} loaded: ${window.state.schedules[ch].length} shows`, 'info');
+      }
+    });
+  }
+}
+
+function renderScheduleTable() {
+  const ch   = window.state.schedChannel;
+  const sched = window.state.schedules[ch] || [];
+  const tbody = document.getElementById('schedBody');
+  const count = document.getElementById('schedCount');
+
+  if (count) count.textContent = `${sched.length} shows`;
+
+  if (!sched.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:30px;">کوئی پروگرام نہیں ملا</td></tr>';
+    return;
+  }
+
+  // Current show detection
+  const now    = Math.floor(Date.now() / 1000);
+  let cursor   = sched[0]?.start_ts || 0;
+  const total  = sched.reduce((s, show) => s + (show.duration || 0), 0);
+  const elapsed = total > 0 ? (now - cursor) % total : 0;
+
+  let liveIdx = 0;
+  let c2 = 0;
+  for (let i = 0; i < sched.length; i++) {
+    const dur = sched[i].duration || 0;
+    if (elapsed >= c2 && elapsed < c2 + dur) { liveIdx = i; break; }
+    c2 += dur;
+  }
+
+  tbody.innerHTML = sched.map((s, i) => {
+    const startDate = s.start_ts ? new Date(s.start_ts * 1000) : null;
+    const startStr  = startDate ? startDate.toLocaleString('en-PK', {timeZone:'Asia/Karachi',
+      hour:'2-digit',minute:'2-digit',month:'short',day:'numeric'}) : '—';
+    const isLive    = i === liveIdx;
+    return `
+      <tr class="${isLive ? 'live-row' : ''}">
+        <td style="font-family:'Orbitron',monospace;font-size:0.7rem;color:var(--gold);">${i+1}${isLive ? ' 🔴' : ''}</td>
+        <td style="font-family:var(--urdu-font);font-size:1rem;direction:rtl;">${s.title || '—'}</td>
+        <td style="font-family:monospace;font-size:0.78rem;white-space:nowrap;">${startStr}</td>
+        <td style="font-size:0.8rem;">${formatDuration(s.duration || 0)}</td>
+        <td><span style="font-size:0.72rem;background:rgba(212,175,55,0.1);color:var(--gold);
+                         padding:2px 8px;border-radius:10px;">${s.category || '—'}</span></td>
+        <td style="font-size:0.7rem;font-family:monospace;max-width:200px;overflow:hidden;
+                   text-overflow:ellipsis;white-space:nowrap;" title="${s.stream_url || ''}">${s.stream_url || '—'}</td>
+        <td>
+          <button class="btn btn-red btn-sm" onclick="removeShow(${i})">✕</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function addShow() {
+  const ch       = window.state.schedChannel;
+  const title    = document.getElementById('showTitle')?.value.trim();
+  const url      = document.getElementById('showUrl')?.value.trim();
+  const duration = parseInt(document.getElementById('showDuration')?.value || 3600);
+  const timeVal  = document.getElementById('showTime')?.value || '08:00';
+  const category = document.getElementById('showCategory')?.value || 'show';
+  const repeat   = document.getElementById('showRepeat')?.value || 'daily';
+
+  if (!title || !url) { log('Title and URL are required', 'error'); return; }
+
+  // Calculate start_ts from time input (today PKT)
+  const [hh, mm]  = timeVal.split(':').map(Number);
+  const now        = new Date();
+  const pkOffset   = 5 * 60;
+  const localOffset = now.getTimezoneOffset();
+  const pkNow      = new Date(now.getTime() + (pkOffset + localOffset) * 60000);
+  pkNow.setHours(hh, mm, 0, 0);
+  const start_ts   = Math.floor((pkNow.getTime() - (pkOffset + localOffset) * 60000) / 1000);
+
+  const showObj = { title, stream_url: url, duration, start_ts, category, is_filler: false, repeat };
+
+  // Add to local state
+  window.state.schedules[ch].push(showObj);
+  window.state.schedules[ch].sort((a, b) => (a.start_ts || 0) - (b.start_ts || 0));
+
+  // Push to Firebase
+  try {
+    const sched = window.state.schedules[ch];
+    await set(ref(db, `mitv/schedules/ch${ch}`), sched.reduce((acc, s, i) => ({ ...acc, [i]: s }), {}));
+    log(`Show added to CH${ch}: "${title}"`, 'info');
+  } catch (e) {
+    log(`Firebase write failed: ${e.message}`, 'error');
+  }
+
+  renderScheduleTable();
+  // Clear inputs
+  if (document.getElementById('showTitle')) document.getElementById('showTitle').value = '';
+  if (document.getElementById('showUrl'))   document.getElementById('showUrl').value   = '';
+}
+
+async function removeShow(idx) {
+  const ch = window.state.schedChannel;
+  window.state.schedules[ch].splice(idx, 1);
+  try {
+    const sched = window.state.schedules[ch];
+    await set(ref(db, `mitv/schedules/ch${ch}`), sched.reduce((acc, s, i) => ({ ...acc, [i]: s }), {}));
+    log(`Show removed from CH${ch}`, 'info');
+  } catch (e) {
+    log(`Firebase write failed: ${e.message}`, 'error');
+  }
+  renderScheduleTable();
+}
+
+function generateDefaultSchedule() {
+  const ch = window.state.schedChannel;
+  const urlMap = {
+    news:       document.getElementById('urlNews')?.value || FILLER_LOOP,
+    religious:  document.getElementById('urlReligious')?.value || FILLER_LOOP,
+    documentary:document.getElementById('urlDocumentary')?.value || FILLER_LOOP,
+    show:       document.getElementById('urlShow')?.value || FILLER_LOOP,
+    nasheed:    document.getElementById('urlNasheed')?.value || FILLER_LOOP,
+    azan:       FILLER_LOOP,
+    film:       FILLER_LOOP,
+    loop:       FILLER_LOOP,
+  };
+
+  const BLOCKS = [
+    {title:'📺 صبح کی خبریں',       duration:3600, cat:'news'},
+    {title:'🕌 تلاوت قرآن',          duration:1800, cat:'religious'},
+    {title:'📰 MI نیوز بلیٹن',       duration:900,  cat:'news'},
+    {title:'🎬 اسلامی دستاویزی فلم', duration:5400, cat:'documentary'},
+    {title:'📺 دوپہر کا شو',         duration:3600, cat:'show'},
+    {title:'🕌 اذان ظہر',            duration:300,  cat:'azan'},
+    {title:'🎵 نشید کلیکشن',         duration:2700, cat:'nasheed'},
+    {title:'📰 شام کا نیوز بلیٹن',  duration:900,  cat:'news'},
+    {title:'🎬 مسلم دنیا رپورٹ',    duration:3600, cat:'documentary'},
+    {title:'🕌 اذان عصر',            duration:300,  cat:'azan'},
+    {title:'📺 شام کا شو',           duration:3600, cat:'show'},
+    {title:'🕌 اذان مغرب',           duration:300,  cat:'azan'},
+    {title:'📰 پرائم ٹائم خبریں',    duration:1800, cat:'news'},
+    {title:'🎬 فیچرڈ فلم',           duration:7200, cat:'film'},
+    {title:'🕌 اذان عشاء',           duration:300,  cat:'azan'},
+    {title:'🎵 رات کے نشید',         duration:3600, cat:'nasheed'},
+    {title:'📺 رات کا خلاصہ',        duration:1800, cat:'news'},
+    {title:'🌙 راتوں رات لوپ',       duration:14400,cat:'loop'},
+  ];
+
+  const now    = new Date();
+  const pkOff  = 5 * 60 + now.getTimezoneOffset();
+  const pkNow  = new Date(now.getTime() + pkOff * 60000);
+  pkNow.setHours(0, 0, 0, 0);
+  let curTs    = Math.floor((pkNow.getTime() - pkOff * 60000) / 1000);
+
+  const schedule = [];
+  for (let day = 0; day < 30; day++) {
+    for (const b of BLOCKS) {
+      schedule.push({
+        title:      `دن ${day+1} — ${b.title}`,
+        duration:   b.duration,
+        stream_url: urlMap[b.cat] || FILLER_LOOP,
+        start_ts:   curTs,
+        category:   b.cat,
+        day:        day + 1,
+        is_filler:  false,
+      });
+      curTs += b.duration;
+    }
+  }
+
+  window.state.schedules[ch] = schedule;
+  renderScheduleTable();
+
+  // Push to Firebase
+  const payload = schedule.reduce((acc, s, i) => ({ ...acc, [i]: s }), {});
+  set(ref(db, `mitv/schedules/ch${ch}`), payload)
+    .then(() => log(`30-day default schedule generated for CH${ch} (${schedule.length} shows)`, 'info'))
+    .catch(e => log(`Firebase error: ${e.message}`, 'error'));
+}
+
+async function loadScheduleFromFirebase() {
+  const ch = window.state.schedChannel;
+  try {
+    const snap = await get(ref(db, `mitv/schedules/ch${ch}`));
+    if (snap.exists()) {
+      const data = snap.val();
+      window.state.schedules[ch] = Array.isArray(data) ? data : Object.values(data);
+      renderScheduleTable();
+      log(`Schedule reloaded from Firebase for CH${ch}`, 'info');
+    } else {
+      log(`No schedule found in Firebase for CH${ch}`, 'warn');
+    }
+  } catch (e) {
+    log(`Firebase read error: ${e.message}`, 'error');
+  }
+}
+
+async function clearSchedule() {
+  if (!confirm('Clear entire schedule? This cannot be undone.')) return;
+  const ch = window.state.schedChannel;
+  window.state.schedules[ch] = [];
+  await set(ref(db, `mitv/schedules/ch${ch}`), null);
+  renderScheduleTable();
+  log(`Schedule cleared for CH${ch}`, 'warn');
+}
+
+// ─── Ticker / Patti ───────────────────────────────────────────────────────────
+async function pushTickerToFirebase() {
+  const content = document.getElementById('tickerContent')?.value.trim();
+  const label   = document.getElementById('tickerLabelText')?.value.trim() || 'MI NEWS';
+  const mode    = document.getElementById('tickerMode')?.value || 'news';
+
+  if (!content) { log('Ticker content is empty', 'error'); return; }
+
+  const payload = {
+    text:       content,
+    label,
+    mode,
+    updated_at: Date.now(),
+  };
+
+  try {
+    await set(ref(db, 'mitv/ticker'), payload);
+    log(`Ticker pushed to Firebase live`, 'info');
+    previewTicker();
+  } catch (e) {
+    log(`Ticker push failed: ${e.message}`, 'error');
+  }
+}
+
+function previewTicker() {
+  const content  = document.getElementById('tickerContent')?.value || '';
+  const label    = document.getElementById('tickerLabelText')?.value || 'MI NEWS';
+  const preLabel = document.getElementById('previewLabelEl');
+  const preText  = document.getElementById('previewTextEl');
+  const breakPrev= document.getElementById('breakingTextPrev');
+  if (preLabel) preLabel.textContent = label;
+  if (preText)  preText.textContent  = content;
+  if (breakPrev) breakPrev.textContent = content;
+}
+
+function clearTicker() {
+  if (document.getElementById('tickerContent')) document.getElementById('tickerContent').value = '';
+  previewTicker();
+}
+
+function saveHeadline() {
+  const content = document.getElementById('tickerContent')?.value.trim();
+  if (!content) return;
+  window.state.savedHeadlines.push(content);
+  renderHeadlines();
+}
+
+function renderHeadlines() {
+  const el = document.getElementById('savedHeadlines');
+  if (!el) return;
+  el.innerHTML = window.state.savedHeadlines.map((h, i) => `
+    <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;
+                padding:8px 12px;display:flex;align-items:center;gap:8px;cursor:pointer;"
+         onclick="loadHeadline(${i})">
+      <span style="flex:1;font-family:var(--urdu-font);font-size:1rem;direction:rtl;">${h}</span>
+      <button onclick="event.stopPropagation();deleteHeadline(${i})"
+              style="background:none;border:none;color:var(--red);cursor:pointer;">✕</button>
+    </div>
+  `).join('');
+}
+
+window.loadHeadline   = (i) => { if (document.getElementById('tickerContent')) document.getElementById('tickerContent').value = window.state.savedHeadlines[i]; };
+window.deleteHeadline = (i) => { window.state.savedHeadlines.splice(i,1); renderHeadlines(); };
+
+async function fetchPrayerTimes() {
+  const city    = document.getElementById('prayerCity')?.value || 'Kasur';
+  const country = document.getElementById('prayerCountry')?.value || 'Pakistan';
+  const resultEl= document.getElementById('prayerTimesResult');
+
+  if (resultEl) resultEl.textContent = 'لوڈ ہو رہا ہے...';
+
+  try {
+    const resp = await fetch(`https://api.aladhan.com/v1/timingsByCity?city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}&method=1`);
+    const data = await resp.json();
+    if (data.code === 200) {
+      const t = data.data.timings;
+      const text = `🕌 ${city} — نماز کے اوقات | فجر: ${t.Fajr} | ظہر: ${t.Dhuhr} | عصر: ${t.Asr} | مغرب: ${t.Maghrib} | عشاء: ${t.Isha}`;
+      if (resultEl) resultEl.textContent = text;
+      if (document.getElementById('tickerContent'))
+        document.getElementById('tickerContent').value = text;
+      log(`Prayer times fetched for ${city}`, 'info');
+    }
+  } catch (e) {
+    if (resultEl) resultEl.textContent = 'خرابی: اوقات لوڈ نہیں ہوئے';
+    log(`Prayer times fetch failed: ${e.message}`, 'error');
+  }
+}
+
+// Listen for ticker changes in Firebase
+onValue(ref(db, 'mitv/ticker'), (snap) => {
+  if (snap.exists()) {
+    const data = snap.val();
+    const el = document.getElementById('firebaseTickerCurrent');
+    if (el) el.textContent = data.text || '—';
+  }
+});
+
+// ─── Override Controls ────────────────────────────────────────────────────────
+async function activateOverride() {
+  const ch    = window.state.activeChannel;
+  const url   = document.getElementById('overrideUrl')?.value.trim();
+  const title = document.getElementById('overrideTitle')?.value.trim() || 'ہنگامی نشریات';
+
+  if (!url) { log('Override URL is required', 'error'); return; }
+
+  const payload = { active: true, stream_url: url, title, activated_at: Date.now() };
+  try {
+    await set(ref(db, `mitv/overrides/ch${ch}`), payload);
+    const el = document.getElementById('overrideStatus');
+    if (el) el.innerHTML = `<span style="color:var(--red);">🚨 Override ACTIVE on CH${ch}</span>`;
+    log(`🚨 Emergency override activated on CH${ch}: ${url}`, 'warn');
+  } catch (e) {
+    log(`Override activation failed: ${e.message}`, 'error');
+  }
+}
+
+async function deactivateOverride() {
+  const ch = window.state.activeChannel;
+  try {
+    await set(ref(db, `mitv/overrides/ch${ch}`), { active: false });
+    const el = document.getElementById('overrideStatus');
+    if (el) el.innerHTML = `<span style="color:var(--green);">✅ Override deactivated</span>`;
+    log(`Override deactivated on CH${ch}`, 'info');
+  } catch (e) {
+    log(`Override deactivation failed: ${e.message}`, 'error');
+  }
+}
+
+// ─── Copyright Shield ─────────────────────────────────────────────────────────
+function toggleNoise(enabled) {
+  window.state.noiseEnabled = enabled;
+  const overlay = document.getElementById('noiseOverlay');
+  if (overlay) overlay.style.display = enabled ? 'block' : 'none';
+  const dot   = document.getElementById('shieldDot1');
+  const label = document.getElementById('shieldLabel1');
+  if (dot)   dot.style.background   = enabled ? 'var(--green)' : '#666';
+  if (label) { label.textContent = enabled ? 'ON'; label.style.color = enabled ? 'var(--green)' : 'var(--text-dim)'; }
+  log(`Visual noise overlay: ${enabled ? 'ENABLED' : 'DISABLED'}`, enabled ? 'info' : 'warn');
+}
+
+function toggleHueShift(enabled) {
+  window.state.hueEnabled = enabled;
+  if (enabled) {
+    let hue = 0;
+    window.state.hueInterval = setInterval(() => {
+      hue = (hue + 0.5) % 360;
+      document.body.style.filter = `hue-rotate(${hue * 0.005}deg)`;
+    }, 100);
+  } else {
+    clearInterval(window.state.hueInterval);
+    document.body.style.filter = '';
+  }
+  const dot   = document.getElementById('shieldDot2');
+  const label = document.getElementById('shieldLabel2');
+  if (dot)   dot.style.background = enabled ? 'var(--green)' : '#666';
+  if (label) { label.textContent = enabled ? 'ON' : 'OFF'; label.style.color = enabled ? 'var(--green)' : 'var(--text-dim)'; }
+}
+
+function updateSpeedLabel(v) {
+  const el = document.getElementById('speedLabel');
+  if (el) el.textContent = parseFloat(v) === 0 ? 'disabled' : `±${v}%`;
+}
+
+function updatePitchLabel(v) {
+  const el = document.getElementById('pitchLabel');
+  if (el) el.textContent = `${parseFloat(v) >= 0 ? '+' : ''}${v}st`;
+}
+
+function applyPreset(mode) {
+  const noiseEl = document.getElementById('noiseToggle');
+  const hueEl   = document.getElementById('hueToggle');
+  const speedEl = document.getElementById('speedVariance');
+  const pitchEl = document.getElementById('pitchShift');
+
+  const presets = {
+    light:  { noise: false, hue: false, speed: 0.1, pitch: 0.05 },
+    medium: { noise: true,  hue: false, speed: 0.5, pitch: 0.1  },
+    strong: { noise: true,  hue: true,  speed: 1.0, pitch: 0.3  },
+    off:    { noise: false, hue: false, speed: 0,   pitch: 0    },
+  };
+
+  const p = presets[mode];
+  if (!p) return;
+
+  if (noiseEl) { noiseEl.checked = p.noise; toggleNoise(p.noise); }
+  if (hueEl)   { hueEl.checked   = p.hue;   toggleHueShift(p.hue); }
+  if (speedEl) { speedEl.value   = p.speed;  updateSpeedLabel(p.speed); }
+  if (pitchEl) { pitchEl.value   = p.pitch;  updatePitchLabel(p.pitch); }
+
+  log(`Shield preset applied: ${mode.toUpperCase()}`, 'info');
+}
+
+async function saveShieldSettings() {
+  const payload = {
+    noise_enabled:    document.getElementById('noiseToggle')?.checked || false,
+    hue_shift_enabled: document.getElementById('hueToggle')?.checked || false,
+    speed_variance:   parseFloat(document.getElementById('speedVariance')?.value || 0),
+    pitch_shift:      parseFloat(document.getElementById('pitchShift')?.value || 0),
+    audio_mod_enabled: document.getElementById('audioModToggle')?.checked || false,
+    saved_at:         Date.now(),
+  };
+  try {
+    await set(ref(db, 'mitv/shield_settings'), payload);
+    log('Shield settings saved to Firebase', 'info');
+  } catch (e) {
+    log(`Shield settings save failed: ${e.message}`, 'error');
+  }
+}
+
+// ─── Stream URLs ──────────────────────────────────────────────────────────────
+async function saveStreamUrls() {
+  const payload = {
+    news:        document.getElementById('urlNews')?.value || '',
+    religious:   document.getElementById('urlReligious')?.value || '',
+    documentary: document.getElementById('urlDocumentary')?.value || '',
+    show:        document.getElementById('urlShow')?.value || '',
+    nasheed:     document.getElementById('urlNasheed')?.value || '',
+    filler:      document.getElementById('urlFiller')?.value || FILLER_LOOP,
+    updated_at:  Date.now(),
+  };
+  try {
+    await set(ref(db, 'mitv/stream_urls'), payload);
+    log('Stream URLs saved to Firebase', 'info');
+  } catch (e) {
+    log(`Stream URLs save failed: ${e.message}`, 'error');
+  }
+}
+
+// Load stream URLs from Firebase on start
+onValue(ref(db, 'mitv/stream_urls'), (snap) => {
+  if (!snap.exists()) return;
+  const d = snap.val();
+  const map = { news:'urlNews', religious:'urlReligious', documentary:'urlDocumentary',
+                show:'urlShow', nasheed:'urlNasheed', filler:'urlFiller' };
+  for (const [k, id] of Object.entries(map)) {
+    const el = document.getElementById(id);
+    if (el && d[k]) el.value = d[k];
+  }
+});
+
+// ─── System Status ────────────────────────────────────────────────────────────
+onValue(ref(db, 'mitv/system/heartbeat'), (snap) => {
+  if (!snap.exists()) return;
+  const d = snap.val();
+  if (d.ch1_last_run_iso) {
+    const t = new Date(d.ch1_last_run_iso);
+    const el = document.getElementById('sysLastRun');
+    if (el) el.textContent = t.toLocaleTimeString('en-GB');
+  }
+});
+
+// ─── Manual Controls ──────────────────────────────────────────────────────────
+async function manualSync() {
+  log('Manual sync triggered — refreshing all channels from Firebase...', 'system');
+  for (const ch of [1,2,3]) {
+    try {
+      const snap = await get(ref(db, `mitv/now_playing/ch${ch}`));
+      if (snap.exists()) {
+        window.state.nowPlaying[ch] = snap.val();
+      }
+    } catch (e) { log(`CH${ch} sync error: ${e.message}`, 'error'); }
+  }
+  refreshDashboard();
+  log('Manual sync complete', 'info');
+}
+
+async function warmVercelCache() {
+  log('Warming Vercel cache...', 'system');
+  for (const ch of [1,2,3]) {
+    try {
+      const resp = await fetch(`${VERCEL_BASE}?ch=${ch}&format=json`);
+      const data = await resp.json();
+      log(`CH${ch} cache warmed: "${data.current_show || '?'}"`, 'info');
+    } catch (e) {
+      log(`CH${ch} cache warm failed: ${e.message}`, 'error');
+    }
+  }
+}
+
+async function factoryReset() {
+  if (!confirm('⚠️ FACTORY RESET: This will DELETE all schedules, tickers, and settings. Are you sure?')) return;
+  if (!confirm('Last chance. This CANNOT be undone. Proceed?')) return;
+  try {
+    await set(ref(db, 'mitv'), null);
+    log('Factory reset complete. All MI TV data cleared.', 'warn');
+    window.state.schedules = { 1: [], 2: [], 3: [] };
+    renderScheduleTable();
+  } catch (e) {
+    log(`Factory reset failed: ${e.message}`, 'error');
+  }
+}
+
+// ─── M3U Export ───────────────────────────────────────────────────────────────
+function generateM3U() {
+  const base = document.getElementById('vercelBase')?.value || VERCEL_BASE;
+  const m3u  = [
+    '#EXTM3U x-tvg-url=""',
+    '',
+    '#EXTINF:-1 tvg-id="mitv-ch1" tvg-name="MI Live TV Ch1" group-title="MI TV",MI Live TV — Channel 1',
+    `${base}?ch=1`,
+    '',
+    '#EXTINF:-1 tvg-id="mitv-ch2" tvg-name="MI Live TV Ch2" group-title="MI TV",MI Live TV — Channel 2',
+    `${base}?ch=2`,
+    '',
+    '#EXTINF:-1 tvg-id="mitv-ch3" tvg-name="MI Live TV Ch3" group-title="MI TV",MI Live TV — Channel 3',
+    `${base}?ch=3`,
+  ].join('\n');
+
+  const el = document.getElementById('m3uOutput');
+  if (el) el.value = m3u;
+  log('M3U playlist generated', 'info');
+}
+
+function copyM3U() {
+  const el = document.getElementById('m3uOutput');
+  if (el) { navigator.clipboard.writeText(el.value); log('M3U copied to clipboard', 'info'); }
+}
+
+function downloadM3U() {
+  const el = document.getElementById('m3uOutput');
+  if (!el || !el.value) { generateM3U(); }
+  const blob = new Blob([el.value], { type: 'audio/x-mpegurl' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = 'mi-live-tv.m3u';
+  a.click();
+  log('M3U playlist downloaded', 'info');
+}
+
+function copyLink(id) {
+  const el = document.getElementById(id);
+  if (el) { navigator.clipboard.writeText(el.value); log(`Link copied: ${el.value}`, 'info'); }
+}
+
+// ─── Frame Editor ─────────────────────────────────────────────────────────────
+function dragLayer(e, id) {
+  window.state.dragLayerId = id;
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function dropLayer(e) {
+  e.preventDefault();
+  const id = window.state.dragLayerId;
+  if (!id) return;
+  const layer  = document.getElementById(id);
+  const canvas = document.getElementById('frameCanvas');
+  if (!layer || !canvas) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const x    = e.clientX - rect.left - 40;
+  const y    = e.clientY - rect.top  - 20;
+
+  layer.style.left   = `${Math.max(0, x)}px`;
+  layer.style.top    = `${Math.max(0, y)}px`;
+  layer.style.right  = 'auto';
+  layer.style.bottom = 'auto';
+}
+
+function addLayer(type) {
+  const canvas = document.getElementById('frameCanvas');
+  if (!canvas) return;
+  const id   = `layer-custom-${Date.now()}`;
+  const div  = document.createElement('div');
+  div.id     = id;
+  div.className = 'frame-layer';
+  div.draggable = true;
+  div.style.cssText = 'top:50%;left:50%;z-index:10;';
+  div.ondragstart = (e) => dragLayer(e, id);
+
+  if (type === 'text') {
+    div.innerHTML = `<div style="color:#fff;font-size:1rem;background:rgba(0,0,0,0.5);padding:6px 10px;border-radius:4px;" contenteditable="true">Text Here</div>`;
+  } else if (type === 'clock') {
+    div.innerHTML = `<div style="font-family:'Orbitron',monospace;color:var(--gold);font-size:1.2rem;letter-spacing:4px;" id="${id}-clock">00:00:00</div>`;
+    setInterval(() => {
+      const el = document.getElementById(`${id}-clock`);
+      if (el) { const n = new Date(); el.textContent = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}:${String(n.getSeconds()).padStart(2,'0')}`; }
+    }, 1000);
+  } else if (type === 'logo') {
+    div.innerHTML = `<div style="font-family:'Bebas Neue';font-size:1.2rem;color:var(--gold);padding:6px;background:rgba(0,0,0,0.5);border-radius:4px;">📺 MI TV</div>`;
+  } else if (type === 'ticker') {
+    div.style.cssText = 'bottom:0;left:0;right:0;z-index:10;';
+    div.innerHTML = `<div style="background:#000;border-top:2px solid var(--gold);height:36px;display:flex;align-items:center;overflow:hidden;">
+      <div style="background:var(--gold);color:#000;font-size:0.65rem;font-family:'Bebas Neue';letter-spacing:2px;padding:0 8px;height:100%;display:flex;align-items:center;flex-shrink:0;">MI NEWS</div>
+      <div style="font-family:var(--urdu-font);font-size:0.9rem;color:#fff;white-space:nowrap;animation:ticker-scroll 15s linear infinite;padding-right:20px;direction:rtl;">خبریں یہاں</div>
+    </div>`;
+  }
+
+  canvas.appendChild(div);
+  log(`Layer added: ${type}`, 'info');
+}
+
+function updateLogoAnimation() {
+  const pulse = document.getElementById('logoPulse')?.checked;
+  const spin  = document.getElementById('logoSpin')?.checked;
+  const logo  = document.querySelector('#layer-logo > div');
+  if (!logo) return;
+  logo.style.animation = spin ? 'logo-spin 8s linear infinite' : (pulse ? 'logo-pulse 3s ease-in-out infinite' : 'none');
+}
+
+async function saveFrameLayout() {
+  const payload = {
+    ticker_bg:     document.getElementById('tickerBg')?.value || '#0a0a1a',
+    ticker_color:  document.getElementById('tickerColor')?.value || '#ffffff',
+    ticker_label:  document.getElementById('tickerLabelBg')?.value || '#d4af37',
+    ticker_speed:  parseInt(document.getElementById('tickerSpeed')?.value || 40),
+    clock_format:  document.getElementById('clockFormat')?.value || '24h',
+    show_date:     document.getElementById('showDate')?.checked || true,
+    logo_url:      document.getElementById('logoUrl')?.value || '',
+    saved_at:      Date.now(),
+  };
+  try {
+    await set(ref(db, 'mitv/frame_layout'), payload);
+    log('Frame layout saved to Firebase', 'info');
+  } catch (e) {
+    log(`Frame layout save failed: ${e.message}`, 'error');
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = String(val);
+}
+
+function formatDuration(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+log('Connecting to Firebase...', 'system');
+listenNowPlaying();
+listenSchedules();
+log('MI Live TV Control Room ready 📺', 'system');
+
+// Auto-refresh dashboard every 30s
+setInterval(() => refreshDashboard(), 30000);
+
+// Update next run countdown
+setInterval(() => {
+  const el = document.getElementById('sysNextRun');
+  if (el) {
+    const minsLeft = 10 - (new Date().getMinutes() % 10);
+    el.textContent = `~${minsLeft} min`;
+  }
+}, 10000);
+
+</script>
+
+<!-- Keyframe for logo pulse (global) -->
+<style>
+@keyframes logo-pulse {
+  0%,100%{ transform:scale(1)   rotate(0deg);  filter:drop-shadow(0 0 8px rgba(212,175,55,.6)); }
+  25%    { transform:scale(1.05)rotate(1deg);  filter:drop-shadow(0 0 14px rgba(212,175,55,.9));}
+  75%    { transform:scale(1.03)rotate(-1deg); filter:drop-shadow(0 0 12px rgba(212,175,55,.8));}
+}
+@keyframes logo-spin { to { transform:rotate(360deg); } }
+</style>
+
+</body>
+</html>

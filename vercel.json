@@ -3,51 +3,35 @@
   "name": "mi-live-tv",
   "builds": [
     {
-      "src": "public/**",
-      "use": "@vercel/static"
+      "src": "api/*.js",
+      "use": "@vercel/node"
     },
     {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
+      "src": "public/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
-      "src": "/api/stream",
-      "dest": "/api/stream.js"
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
     },
     {
-      "src": "/api/trigger-scheduler",
-      "dest": "/api/trigger-scheduler.js"
+      "src": "/admin",
+      "dest": "/public/admin.html"
     },
     {
-      "src": "/(.*)",
-      "dest": "/public/$1"
+      "src": "/",
+      "dest": "/public/admin.html"
     }
   ],
-  "env": {
-    "FIREBASE_PROJECT_ID": "@firebase-project-id",
-    "FIREBASE_CLIENT_EMAIL": "@firebase-client-email",
-    "FIREBASE_PRIVATE_KEY": "@firebase-private-key",
-    "FIREBASE_DATABASE_URL": "@firebase-database-url",
-    "DEFAULT_FILLER_URL": "@default-filler-url",
-    "GITHUB_PAT": "@github-pat",
-    "GITHUB_OWNER": "@github-owner",
-    "GITHUB_REPO": "@github-repo"
-  },
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
         { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS" }
-      ]
-    },
-    {
-      "source": "/(.*)\\.m3u8",
-      "headers": [
-        { "key": "Content-Type", "value": "application/vnd.apple.mpegurl" },
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        { "key": "Access-Control-Allow-Methods", "value": "GET, OPTIONS" },
+        { "key": "Cache-Control", "value": "public, max-age=30, stale-while-revalidate=60" }
       ]
     }
   ]

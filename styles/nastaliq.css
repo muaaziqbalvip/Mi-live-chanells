@@ -1,0 +1,371 @@
+/*
+ * MI LIVE TV SYSTEM — /styles/nastaliq.css
+ * Perfect Urdu rendering with Jameel Noori Nastaliq font.
+ * Full emoji color support. RTL layouts. Broadcast-grade.
+ */
+
+/* ─── Google Fonts: Noto Nastaliq Urdu ──────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap');
+
+/* ─── Local Jameel Noori Nastaliq (if available) ────────────────────────── */
+@font-face {
+  font-family: "Jameel Noori Nastaliq";
+  src: url("../fonts/JameelNooriNastaleeq.ttf") format("truetype"),
+       url("../fonts/JameelNooriNastaleeq.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ─── CSS Custom Properties ─────────────────────────────────────────────── */
+:root {
+  --urdu-font-primary:   "Jameel Noori Nastaliq", "Noto Nastaliq Urdu", "Nafees Web Naskh", serif;
+  --urdu-font-fallback:  "Noto Nastaliq Urdu", "Amiri", "Traditional Arabic", serif;
+  --urdu-line-height:    2.2;
+  --urdu-letter-spacing: 0.02em;
+
+  /* Ticker / Patti colors */
+  --patti-bg:           #0a0a1a;
+  --patti-text:         #ffffff;
+  --patti-accent:       #d4af37;   /* MI Gold */
+  --patti-breaking:     #cc0000;
+  --patti-height:       56px;
+  --patti-font-size:    1.4rem;
+
+  /* Broadcast overlay */
+  --overlay-bg:         rgba(0, 0, 0, 0.85);
+  --overlay-blur:       12px;
+}
+
+/* ─── Base Urdu Text ────────────────────────────────────────────────────── */
+.urdu,
+.urdu-text,
+[lang="ur"],
+[dir="rtl"] {
+  font-family:     var(--urdu-font-primary);
+  direction:       rtl;
+  text-align:      right;
+  line-height:     var(--urdu-line-height);
+  letter-spacing:  var(--urdu-letter-spacing);
+  unicode-bidi:    embed;
+
+  /* Critical for emoji color rendering */
+  font-variant-emoji:       text;
+  -webkit-font-smoothing:   antialiased;
+  -moz-osx-font-smoothing:  grayscale;
+  text-rendering:           optimizeLegibility;
+}
+
+/* ─── Emoji Color Support ───────────────────────────────────────────────── */
+.urdu .emoji,
+.emoji {
+  font-family:       "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji",
+                     "Twemoji Mozilla", "EmojiOne Color", sans-serif;
+  font-style:        normal;
+  font-variant:      normal;
+  line-height:       1;
+  display:           inline-block;
+  vertical-align:    middle;
+  speak:             none;
+  -webkit-text-stroke: 0;
+}
+
+/* ─── Urdu Size Scale ───────────────────────────────────────────────────── */
+.urdu-xs   { font-size: 0.8rem;  line-height: 2.0; }
+.urdu-sm   { font-size: 1rem;    line-height: 2.1; }
+.urdu-md   { font-size: 1.25rem; line-height: 2.2; }
+.urdu-lg   { font-size: 1.6rem;  line-height: 2.3; }
+.urdu-xl   { font-size: 2rem;    line-height: 2.4; }
+.urdu-2xl  { font-size: 2.5rem;  line-height: 2.5; }
+.urdu-3xl  { font-size: 3rem;    line-height: 2.6; }
+
+/* ─── News Ticker / Patti ───────────────────────────────────────────────── */
+.mi-patti {
+  position:         fixed;
+  bottom:           0;
+  left:             0;
+  right:            0;
+  height:           var(--patti-height);
+  background:       var(--patti-bg);
+  border-top:       2px solid var(--patti-accent);
+  display:          flex;
+  align-items:      center;
+  overflow:         hidden;
+  z-index:          9999;
+  box-shadow:       0 -4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.mi-patti__label {
+  flex-shrink:      0;
+  background:       var(--patti-accent);
+  color:            #000;
+  font-weight:      700;
+  font-size:        0.85rem;
+  padding:          0 16px;
+  height:           100%;
+  display:          flex;
+  align-items:      center;
+  text-transform:   uppercase;
+  letter-spacing:   2px;
+  white-space:      nowrap;
+  font-family:      'Bebas Neue', 'Impact', sans-serif;
+}
+
+.mi-patti__label--breaking {
+  background:       var(--patti-breaking);
+  color:            #fff;
+  animation:        pulse-red 1s ease-in-out infinite;
+}
+
+.mi-patti__track {
+  flex:             1;
+  overflow:         hidden;
+  height:           100%;
+  display:          flex;
+  align-items:      center;
+  direction:        rtl;
+}
+
+.mi-patti__text {
+  display:          block;
+  white-space:      nowrap;
+  font-family:      var(--urdu-font-primary);
+  font-size:        var(--patti-font-size);
+  color:            var(--patti-text);
+  direction:        rtl;
+  animation:        ticker-scroll linear infinite;
+  animation-duration: var(--ticker-duration, 40s);
+  padding-right:    100%;
+  will-change:      transform;
+}
+
+.mi-patti__text span.highlight {
+  color:            var(--patti-accent);
+  font-weight:      700;
+}
+
+.mi-patti__text span.breaking {
+  color:            #ff4444;
+}
+
+@keyframes ticker-scroll {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100vw); }
+}
+
+/* ─── Breaking News Banner ──────────────────────────────────────────────── */
+.mi-breaking-banner {
+  position:         fixed;
+  top:              80px;
+  left:             0;
+  right:            0;
+  background:       linear-gradient(135deg, #cc0000 0%, #880000 100%);
+  color:            #fff;
+  padding:          12px 24px;
+  display:          flex;
+  align-items:      center;
+  gap:              16px;
+  z-index:          9998;
+  border-bottom:    3px solid #ff6666;
+  animation:        slide-down 0.4s ease-out;
+}
+
+.mi-breaking-banner__badge {
+  background:       #fff;
+  color:            #cc0000;
+  font-weight:      900;
+  font-size:        0.75rem;
+  padding:          4px 10px;
+  border-radius:    2px;
+  text-transform:   uppercase;
+  letter-spacing:   2px;
+  flex-shrink:      0;
+  animation:        blink 1s step-end infinite;
+}
+
+.mi-breaking-banner__text {
+  font-family:      var(--urdu-font-primary);
+  font-size:        1.3rem;
+  direction:        rtl;
+  text-align:       right;
+  flex:             1;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+@keyframes slide-down {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+/* ─── Digital Broadcast Clock ───────────────────────────────────────────── */
+.mi-clock {
+  font-family:      'Orbitron', 'Courier New', monospace;
+  font-size:        1.6rem;
+  font-weight:      700;
+  color:            #d4af37;
+  letter-spacing:   4px;
+  text-shadow:      0 0 10px rgba(212, 175, 55, 0.5);
+  background:       rgba(0, 0, 0, 0.6);
+  padding:          8px 16px;
+  border:           1px solid rgba(212, 175, 55, 0.3);
+  border-radius:    4px;
+}
+
+.mi-clock__date {
+  font-size:        0.65rem;
+  letter-spacing:   2px;
+  color:            rgba(255, 255, 255, 0.7);
+  text-align:       center;
+  margin-top:       2px;
+  font-family:      'Orbitron', monospace;
+}
+
+/* ─── Animated Logo ─────────────────────────────────────────────────────── */
+.mi-logo {
+  animation:        logo-pulse 3s ease-in-out infinite;
+  filter:           drop-shadow(0 0 8px rgba(212, 175, 55, 0.6));
+  transform-origin: center;
+}
+
+@keyframes logo-pulse {
+  0%   { transform: scale(1)    rotate(0deg);   filter: drop-shadow(0 0 8px rgba(212,175,55,0.6)); }
+  25%  { transform: scale(1.05) rotate(1deg);   filter: drop-shadow(0 0 14px rgba(212,175,55,0.9)); }
+  50%  { transform: scale(1)    rotate(0deg);   filter: drop-shadow(0 0 8px rgba(212,175,55,0.6)); }
+  75%  { transform: scale(1.03) rotate(-1deg);  filter: drop-shadow(0 0 12px rgba(212,175,55,0.8)); }
+  100% { transform: scale(1)    rotate(0deg);   filter: drop-shadow(0 0 8px rgba(212,175,55,0.6)); }
+}
+
+.mi-logo--spin {
+  animation:        logo-spin 8s linear infinite;
+}
+
+@keyframes logo-spin {
+  from { transform: rotate(0deg);   }
+  to   { transform: rotate(360deg); }
+}
+
+/* ─── Copyright Visual Modulation Overlay ───────────────────────────────── */
+.mi-noise-overlay {
+  position:         fixed;
+  inset:            0;
+  pointer-events:   none;
+  z-index:          99999;
+  opacity:          0.01; /* 1% transparent — subtle visual modulation */
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-size:  200px 200px;
+  background-repeat: repeat;
+  mix-blend-mode:   overlay;
+  animation:        noise-shift 0.1s steps(2) infinite;
+}
+
+.mi-noise-overlay.disabled {
+  display: none;
+}
+
+@keyframes noise-shift {
+  0%   { background-position: 0 0; }
+  25%  { background-position: 50px 25px; }
+  50%  { background-position: 25px 50px; }
+  75%  { background-position: 75px 10px; }
+  100% { background-position: 0 0; }
+}
+
+/* ─── Pulse Animations ──────────────────────────────────────────────────── */
+@keyframes pulse-red {
+  0%, 100% { background: var(--patti-breaking); }
+  50%       { background: #ff2222; }
+}
+
+@keyframes pulse-gold {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212,175,55,0.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(212,175,55,0); }
+}
+
+@keyframes glow-in {
+  from { opacity: 0; filter: brightness(0); }
+  to   { opacity: 1; filter: brightness(1); }
+}
+
+/* ─── Schedule Grid ─────────────────────────────────────────────────────── */
+.mi-schedule-item {
+  direction:        rtl;
+  border-right:     3px solid var(--patti-accent);
+  padding-right:    12px;
+  margin-bottom:    8px;
+}
+
+.mi-schedule-item__time {
+  font-family:      'Orbitron', monospace;
+  font-size:        0.75rem;
+  color:            var(--patti-accent);
+  letter-spacing:   1px;
+}
+
+.mi-schedule-item__title {
+  font-family:      var(--urdu-font-primary);
+  font-size:        1.1rem;
+  direction:        rtl;
+}
+
+.mi-schedule-item--live {
+  background:       rgba(212, 175, 55, 0.1);
+  border-radius:    4px;
+  padding:          8px 12px;
+  animation:        pulse-gold 2s ease-in-out infinite;
+}
+
+/* ─── Responsive Ticker ─────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .mi-patti {
+    height:    48px;
+  }
+  .mi-patti__text {
+    font-size: 1.1rem;
+  }
+  .mi-patti__label {
+    font-size: 0.7rem;
+    padding:   0 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mi-patti {
+    height:    44px;
+  }
+  .mi-patti__text {
+    font-size: 0.95rem;
+  }
+}
+
+/* ─── Utility Classes ───────────────────────────────────────────────────── */
+.rtl          { direction: rtl; text-align: right; }
+.ltr          { direction: ltr; text-align: left; }
+.urdu-bold    { font-weight: 700; }
+.urdu-italic  { font-style: italic; }
+.gold-text    { color: var(--patti-accent); }
+.live-badge {
+  display:          inline-flex;
+  align-items:      center;
+  gap:              6px;
+  background:       #cc0000;
+  color:            #fff;
+  font-size:        0.7rem;
+  font-weight:      700;
+  padding:          3px 10px;
+  border-radius:    2px;
+  letter-spacing:   2px;
+  text-transform:   uppercase;
+  font-family:      'Impact', 'Bebas Neue', sans-serif;
+}
+.live-badge::before {
+  content:          "";
+  width:            8px;
+  height:           8px;
+  background:       #fff;
+  border-radius:    50%;
+  animation:        blink 1s step-end infinite;
+}
